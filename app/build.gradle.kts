@@ -20,6 +20,7 @@ android {
         viewBinding = true
     }
 }
+}
         minSdk = ConfigData.MIN_SDK
         targetSdk = ConfigData.TARGET_SDK
         versionCode = ConfigData.VERSION_CODE
