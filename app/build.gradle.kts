@@ -9,7 +9,17 @@ android {
     compileSdk = ConfigData.COMPILE_SDK
 
     defaultConfig {
-        applicationId = "com.minimal.template"
+        android {
+    namespace = "com.abdulbaqi.mashaf"
+
+    defaultConfig {
+        applicationId = "com.abdulbaqi.mashaf"
+    }
+
+    buildFeatures {
+        viewBinding = true
+    }
+}
         minSdk = ConfigData.MIN_SDK
         targetSdk = ConfigData.TARGET_SDK
         versionCode = ConfigData.VERSION_CODE
