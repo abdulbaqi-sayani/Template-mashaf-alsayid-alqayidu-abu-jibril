@@ -11,8 +11,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MinimalTemplate">
 
-        <activity
-            android:name=".presentation.MainActivity"
+       <activity android:name="com.abdulbaqi.mashaf.MainActivity" />
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
