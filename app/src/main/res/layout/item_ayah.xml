@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <TextView xmlns:android="http://schemas.android.com/apk/res/android"
-  android:id="@+id/tvAyah"
-  android:layout_width="match_parent"
-  android:layout_height="wrap_content"
-  android:paddingVertical="12dp"
-  android:textSize="24sp"
-  android:textColor="#1A1A1A"
-  android:lineSpacingExtra="10dp"
-  android:textDirection="rtl"
-  android:gravity="end"/>
+    android:id="@+id/tvAyah"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingVertical="14dp"
+    android:paddingHorizontal="8dp"
+    android:textSize="24sp"
+    android:textColor="#1A1A1A"
+    android:lineSpacingExtra="12dp"
+    android:textDirection="rtl"
+    android:layoutDirection="rtl"
+    android:gravity="right"
+    android:textAlignment="viewEnd" />
