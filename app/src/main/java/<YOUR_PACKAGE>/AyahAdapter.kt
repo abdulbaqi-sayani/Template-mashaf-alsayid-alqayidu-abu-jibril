@@ -18,8 +18,14 @@ class AyahAdapter(
     return VH(b)
   }
 
+  private fun toArabicDigits(n: Int): String {
+    val d = arrayOf("٠","١","٢","٣","٤","٥","٦","٧","٨","٩")
+    return n.toString().map { d[it - '0'] }.joinToString("")
+  }
+
   override fun onBindViewHolder(holder: VH, position: Int) {
-    holder.b.tvAyah.text = items[position]
+    val marker = "${toArabicDigits(position + 1)}۝"   // ✅ الشكل الذي اخترته
+    holder.b.tvAyah.text = "${items[position]}  $marker"
     if (typeface != null) holder.b.tvAyah.typeface = typeface
   }
 
