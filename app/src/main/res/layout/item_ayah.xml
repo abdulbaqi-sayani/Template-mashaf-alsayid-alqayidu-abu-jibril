@@ -3,8 +3,9 @@
   android:id="@+id/tvAyah"
   android:layout_width="match_parent"
   android:layout_height="wrap_content"
-  android:paddingVertical="10dp"
-  android:textSize="22sp"
-  android:lineSpacingExtra="8dp"
+  android:paddingVertical="12dp"
+  android:textSize="24sp"
+  android:textColor="#1A1A1A"
+  android:lineSpacingExtra="10dp"
   android:textDirection="rtl"
-  android:gravity="end" />
+  android:gravity="end"/>
