@@ -1,24 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.minimal.template">
+<manifest package="com.abdulbaqi.mashaf"
+    xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application
-        android:name=".MinimalTemplate"
-        android:allowBackup="false"
-        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="true"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.MinimalTemplate">
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
-       <activity android:name="com.abdulbaqi.mashaf.MainActivity" />
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-        android:screenOrientation="portrait"
+        <activity
+            android:name=".MainActivity"
+            android:exported="true" />
 
     </application>
 
