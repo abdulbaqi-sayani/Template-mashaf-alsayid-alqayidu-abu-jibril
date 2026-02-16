@@ -24,7 +24,7 @@ class AyahAdapter(
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) {
-        val marker = "${toArabicDigits(position + 1)}۝"   // الشكل الذي اخترته
+    val marker = "﴿${toArabicDigits(position + 1)}﴾"""   // الشكل الذي اخترته
         holder.b.tvAyah.text = "${items[position]}  $marker"
         if (typeface != null) holder.b.tvAyah.typeface = typeface
     }
