@@ -8,7 +8,7 @@
     android:textSize="24sp"
     android:textColor="#1A1A1A"
     android:lineSpacingExtra="12dp"
-    android:textDirection="rtl"
     android:layoutDirection="rtl"
-    android:gravity="right"
+    android:textDirection="rtl"
+    android:gravity="end"
     android:textAlignment="viewEnd" />
