@@ -1,9 +1,11 @@
 package YOUR.PACKAGE
 
-import android.graphics.Typeface
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.res.ResourcesCompat
 import androidx.recyclerview.widget.LinearLayoutManager
+import org.json.JSONArray
 import YOUR.PACKAGE.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
@@ -12,20 +14,24 @@ class MainActivity : AppCompatActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+
+    // ✅ قفل الوضع العمودي
+    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+
     b = ActivityMainBinding.inflate(layoutInflater)
     setContentView(b.root)
 
-    val lines = assets.open("ayah/001.txt").bufferedReader().readLines()
-      .map { it.trim() }
-      .filter { it.isNotEmpty() }
+    val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
+    val surahs = JSONArray(jsonText)
+    val firstSurah = surahs.getJSONObject(0)
+    val ayahsArray = firstSurah.getJSONArray("ayahs")
 
-    val amiri = try {
-      Typeface.createFromAsset(assets, "fonts/amiri_quran.ttf")
-    } catch (e: Exception) {
-      null
-    }
+    val ayahs = ArrayList<String>(ayahsArray.length())
+    for (i in 0 until ayahsArray.length()) ayahs.add(ayahsArray.getString(i))
+
+    val amiri = ResourcesCompat.getFont(this, R.font.amiri_quran)
 
     b.rvAyah.layoutManager = LinearLayoutManager(this)
-    b.rvAyah.adapter = AyahAdapter(lines, amiri)
+    b.rvAyah.adapter = AyahAdapter(ayahs, amiri)
   }
 }
