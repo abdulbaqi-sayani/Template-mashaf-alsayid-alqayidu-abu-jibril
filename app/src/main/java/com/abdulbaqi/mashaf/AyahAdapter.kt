@@ -26,8 +26,18 @@ class AyahAdapter(
         return n.toString().map { d[it - '0'] }.joinToString("")
     }
 
+    // ✅ حذف (1) (٢) ... إلخ
     private fun removeBracketNumbers(text: String): String {
         return text.replace(Regex("\\(([0-9٠-٩]+)\\)"), "").trim()
+    }
+
+    // ✅ تنظيف النص داخل الآية: إزالة أي كسر سطر حتى لا تنقسم بين الفواصل
+    private fun normalizeWhitespace(text: String): String {
+        return text
+            .replace("\r", " ")
+            .replace("\n", " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
     }
 
     private fun isSurahTitle(text: String): Boolean {
@@ -62,35 +72,35 @@ class AyahAdapter(
         for (item in cleaned) {
             val raw = item.trim()
 
-            // بداية سورة جديدة (عنوان السورة)
+            // ✅ عنوان السورة: بدون رقم + إعادة العد
             if (isSurahTitle(raw)) {
                 currentSurahIsFatiha = isFatihaTitle(raw)
                 ayahCounter = 0
-                out.add(Row(raw, null)) // عنوان بلا رقم
+                out.add(Row(normalizeWhitespace(raw), null))
                 continue
             }
 
-            // سطر الصلاة بلا رقم
+            // ✅ سطر الصلاة على محمد وآل محمد: بدون رقم
             if (isSalawatLine(raw)) {
-                out.add(Row(raw, null))
+                out.add(Row(normalizeWhitespace(raw), null))
                 continue
             }
 
-            // البسملة: ترقم فقط في الفاتحة
+            // ✅ البسملة: تُرقّم فقط في الفاتحة، وبقية السور بدون رقم
             if (isBasmala(raw) && !currentSurahIsFatiha) {
-                out.add(Row(raw, null))
+                out.add(Row(normalizeWhitespace(raw), null))
                 continue
             }
 
-            // آية عادية: حذف أرقام الأقواس ثم ترقيم
-            val text = removeBracketNumbers(raw)
-            if (text.isEmpty()) {
-                out.add(Row(raw, null))
+            // ✅ آية عادية: احذف أرقام الأقواس + نظّف كسر السطر + رقّم
+            val cleanedText = normalizeWhitespace(removeBracketNumbers(raw))
+            if (cleanedText.isEmpty()) {
+                out.add(Row(normalizeWhitespace(raw), null))
                 continue
             }
 
             ayahCounter += 1
-            out.add(Row(text, ayahCounter))
+            out.add(Row(cleanedText, ayahCounter))
         }
 
         return out
@@ -104,6 +114,7 @@ class AyahAdapter(
         } else {
             val number = toArabicDigits(row.number)
             val marker = "﴿$number﴾"
+
             // ✅ الرقم في آخر الآية
             holder.b.tvAyah.text = row.text + "  " + marker
         }
