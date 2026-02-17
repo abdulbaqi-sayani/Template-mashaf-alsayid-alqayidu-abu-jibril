@@ -3,6 +3,7 @@ package com.abdulbaqi.mashaf
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -14,71 +15,76 @@ class MainActivity : AppCompatActivity() {
     private lateinit var b: ActivityMainBinding
     private lateinit var lm: LinearLayoutManager
 
-    private var surahIndex: Int = 0
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
 
-        surahIndex = intent.getIntExtra("surahIndex", 0)
-        val openedFromIndex = intent.getBooleanExtra("fromIndex", false)
-
         val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
         val surahs = JSONArray(jsonText)
-        val surahObj = surahs.getJSONObject(surahIndex)
-        val ayahsArray = surahObj.getJSONArray("ayahs")
 
-        val ayahs = ArrayList<String>(ayahsArray.length())
-        for (i in 0 until ayahsArray.length()) {
-            ayahs.add(
-                ayahsArray.getString(i)
+        // ✅ قائمة واحدة لكل المصحف (عنوان سورة + آياتها)
+        val items = ArrayList<QItem>(10000)
+
+        for (s in 0 until surahs.length()) {
+            val surahObj = surahs.getJSONObject(s)
+            val name = surahObj.getString("name")
+            items.add(QItem.SurahTitle(name, s))
+
+            val ayahsArray = surahObj.getJSONArray("ayahs")
+            for (a in 0 until ayahsArray.length()) {
+                val text = ayahsArray.getString(a)
                     .replace("\r", " ")
                     .replace("\n", " ")
                     .replace(Regex("\\s+"), " ")
                     .trim()
-            )
+                items.add(QItem.Ayah(text, s, a))
+            }
         }
 
         val amiri = ResourcesCompat.getFont(this, R.font.amiri_quran)
 
         lm = LinearLayoutManager(this)
         b.rvAyah.layoutManager = lm
-        b.rvAyah.adapter = AyahAdapter(ayahs, amiri)
+        b.rvAyah.adapter = QuranAdapter(items, amiri)
 
-        // Divider مخصص (اختياري)
+        // Divider مخصص
         val divider = DividerItemDecoration(this, lm.orientation)
-        val d = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.divider_ayah)
-        if (d != null) divider.setDrawable(d)
+        ContextCompat.getDrawable(this, R.drawable.divider_ayah)?.let { divider.setDrawable(it) }
         b.rvAyah.addItemDecoration(divider)
 
-        // ✅ من الفهرس: افتح من أعلى
-        if (openedFromIndex) {
-            b.rvAyah.post { lm.scrollToPositionWithOffset(0, 0) }
+        // ✅ إذا جاء طلب من الفهرس: اذهب لبداية السورة المطلوبة واجعلها أعلى الصفحة
+        val fromIndex = intent.getBooleanExtra("fromIndex", false)
+        val wantedSurah = intent.getIntExtra("surahIndex", 0)
+
+        if (fromIndex) {
+            val pos = items.indexOfFirst { it is QItem.SurahTitle && it.surahIndex == wantedSurah }
+            if (pos >= 0) b.rvAyah.post { lm.scrollToPositionWithOffset(pos, 0) }
         } else {
-            // ✅ من "متابعة القراءة": افتح على الإشارة إن كانت لنفس السورة
+            // ✅ متابعة القراءة
             if (BookmarkStore.hasBookmark(this)) {
-                val savedSurah = BookmarkStore.getSurahIndex(this)
-                val savedAyah = BookmarkStore.getAyahIndex(this)
-                if (savedSurah == surahIndex && savedAyah >= 0) {
-                    b.rvAyah.post { lm.scrollToPositionWithOffset(savedAyah, 0) }
-                } else {
-                    b.rvAyah.post { lm.scrollToPositionWithOffset(0, 0) }
-                }
-            } else {
-                b.rvAyah.post { lm.scrollToPositionWithOffset(0, 0) }
+                val s = BookmarkStore.getSurahIndex(this)
+                val a = BookmarkStore.getAyahIndex(this)
+
+                val pos = items.indexOfFirst { it is QItem.Ayah && it.surahIndex == s && it.ayahIndex == a }
+                if (pos >= 0) b.rvAyah.post { lm.scrollToPositionWithOffset(pos, 0) }
             }
         }
     }
 
     override fun onPause() {
         super.onPause()
-        // ✅ حفظ موضع القراءة تلقائيًا
-        val firstVisible = lm.findFirstVisibleItemPosition()
-        if (firstVisible >= 0) {
-            BookmarkStore.save(this, surahIndex, firstVisible)
+
+        // ✅ حفظ الإشارة المرجعية (أول آية ظاهرة)
+        val adapter = b.rvAyah.adapter as? QuranAdapter ?: return
+        val pos = lm.findFirstVisibleItemPosition()
+        if (pos < 0) return
+
+        val item = adapter.getItemAt(pos)
+        if (item is QItem.Ayah) {
+            BookmarkStore.save(this, item.surahIndex, item.ayahIndex)
         }
     }
 }
