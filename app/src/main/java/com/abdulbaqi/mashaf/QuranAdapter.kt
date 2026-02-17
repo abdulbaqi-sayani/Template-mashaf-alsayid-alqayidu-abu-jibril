@@ -3,6 +3,7 @@ package com.abdulbaqi.mashaf
 import android.graphics.Typeface
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.view.View
 import androidx.recyclerview.widget.RecyclerView
 import com.abdulbaqi.mashaf.databinding.ItemAyahBinding
 import com.abdulbaqi.mashaf.databinding.ItemSurahTitleBinding
@@ -13,129 +14,85 @@ class QuranAdapter(
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
-        private const val VT_TITLE = 1
-        private const val VT_AYAH = 2
-    }
-
-    // ✅ خريطة رقم العرض لكل آية (قد تكون null إذا لا نريد رقم)
-    private val displayNumber: MutableMap<Pair<Int, Int>, Int?> = mutableMapOf()
-
-    init {
-        buildDisplayNumbers()
-    }
-
-    private fun buildDisplayNumbers() {
-        var currentSurah = -1
-        var counter = 0
-
-        for (it in items) {
-            when (it) {
-                is QItem.SurahTitle -> {
-                    currentSurah = it.surahIndex
-                    counter = 0
-                }
-
-                is QItem.Ayah -> {
-                    if (it.surahIndex != currentSurah) {
-                        currentSurah = it.surahIndex
-                        counter = 0
-                    }
-
-                    val key = it.surahIndex to it.ayahIndex
-
-                    if (shouldHideNumber(it.text, it.surahIndex)) {
-                        displayNumber[key] = null
-                    } else {
-                        counter += 1
-                        displayNumber[key] = counter
-                    }
-                }
-            }
-        }
-    }
-
-    private fun shouldHideNumber(text: String, surahIndex: Int): Boolean {
-        val t = text.trim()
-
-        // ✅ لا رقم لسطر الصلاة على محمد وآل محمد (إن كان موجودًا بالنص)
-        if (t.contains("اللَّهُمَّ صَلِّ عَلَى مُحَمَّد") || t.contains("اللهم صل على محمد")) {
-            return true
-        }
-
-        // ✅ البسملة: لا رقم لها في كل السور إلا الفاتحة (surahIndex == 0)
-        val isBasmala = t.contains("بِسْمِ") && t.contains("الرَّحْمٰن") && t.contains("الرَّحِيم")
-        if (isBasmala && surahIndex != 0) return true
-
-        return false
+        private const val TYPE_SURAH = 0
+        private const val TYPE_AYAH = 1
     }
 
     override fun getItemViewType(position: Int): Int {
         return when (items[position]) {
-            is QItem.SurahTitle -> VT_TITLE
-            is QItem.Ayah -> VT_AYAH
+            is QItem.SurahTitle -> TYPE_SURAH
+            is QItem.Ayah -> TYPE_AYAH
         }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-        val inflater = LayoutInflater.from(parent.context)
 
-        return when (viewType) {
-            VT_TITLE -> {
-                val b = ItemSurahTitleBinding.inflate(inflater, parent, false)
-                TitleVH(b)
-            }
-            else -> {
-                val b = ItemAyahBinding.inflate(inflater, parent, false)
-                AyahVH(b)
-            }
-        }
-    }
-
-    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        when (val item = items[position]) {
-            is QItem.SurahTitle -> (holder as TitleVH).bind(item)
-            is QItem.Ayah -> (holder as AyahVH).bind(item)
+        return if (viewType == TYPE_SURAH) {
+            val binding = ItemSurahTitleBinding.inflate(
+                LayoutInflater.from(parent.context),
+                parent,
+                false
+            )
+            SurahViewHolder(binding)
+        } else {
+            val binding = ItemAyahBinding.inflate(
+                LayoutInflater.from(parent.context),
+                parent,
+                false
+            )
+            AyahViewHolder(binding)
         }
     }
 
     override fun getItemCount(): Int = items.size
 
-    fun getItemAt(position: Int): QItem = items[position]
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
 
-    // ---------------- ViewHolders ----------------
+        when (val item = items[position]) {
 
-    inner class TitleVH(private val b: ItemSurahTitleBinding) : RecyclerView.ViewHolder(b.root) {
-        fun bind(item: QItem.SurahTitle) {
-            // حسب تصميمك: غالباً لديك TextView للعنوان (مثلاً tvTitle أو tvName)
-            // عدّل السطر التالي إذا اسم الـ TextView مختلف عندك:
-            b.tvTitle.text = item.name
-        }
-    }
+            is QItem.SurahTitle -> {
+                val h = holder as SurahViewHolder
+                h.b.tvSurahName.text = item.name
+            }
 
-    inner class AyahVH(private val b: ItemAyahBinding) : RecyclerView.ViewHolder(b.root) {
-        fun bind(item: QItem.Ayah) {
-            b.tvAyah.typeface = amiri
+            is QItem.Ayah -> {
+                val h = holder as AyahViewHolder
 
-            val key = item.surahIndex to item.ayahIndex
-            val n = displayNumber[key]
+                h.b.tvAyah.typeface = amiri
+                h.b.tvAyah.text = item.text
 
-            // ✅ رقم الآية في آخر النص (إن وجد)
-            b.tvAyah.text = if (n == null) {
-                item.text
-            } else {
-                // مسافة + رقم مزخرف آخر الآية
-                "${item.text}  ${formatOrnateAyahNumber(n)}"
+                val ayahNumber = item.ayahIndex + 1
+                h.b.tvNumber.visibility = View.VISIBLE
+                h.b.tvNumber.text = formatOrnateAyahNumber(ayahNumber)
             }
         }
     }
 
+    // ✅ تنسيق الرقم بهذا الشكل ﴿٥﴾
     private fun formatOrnateAyahNumber(n: Int): String {
-        // مثال: ٦۝
-        val arabic = n.toString()
-            .replace("0", "٠").replace("1", "١").replace("2", "٢").replace("3", "٣")
-            .replace("4", "٤").replace("5", "٥").replace("6", "٦").replace("7", "٧")
-            .replace("8", "٨").replace("9", "٩")
 
-        return "${arabic}۝"
+        val arabic = n.toString()
+            .replace("0", "٠")
+            .replace("1", "١")
+            .replace("2", "٢")
+            .replace("3", "٣")
+            .replace("4", "٤")
+            .replace("5", "٥")
+            .replace("6", "٦")
+            .replace("7", "٧")
+            .replace("8", "٨")
+            .replace("9", "٩")
+
+        return "﴿$arabic﴾"
     }
+
+    fun getItemAt(position: Int): QItem {
+        return items[position]
+    }
+
+    class SurahViewHolder(val b: ItemSurahTitleBinding) :
+        RecyclerView.ViewHolder(b.root)
+
+    class AyahViewHolder(val b: ItemAyahBinding) :
+        RecyclerView.ViewHolder(b.root)
 }
