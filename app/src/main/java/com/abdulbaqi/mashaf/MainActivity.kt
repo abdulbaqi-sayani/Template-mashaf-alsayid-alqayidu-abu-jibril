@@ -27,15 +27,18 @@ class MainActivity : AppCompatActivity() {
         val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
         val surahs = JSONArray(jsonText)
 
-        // ✅ استلام رقم السورة من الفهرس (وإلا افتح الأولى)
-        val index = intent.getIntExtra("surahIndex", 0).coerceIn(0, surahs.length() - 1)
+        // ✅ اجمع كل المصحف في قائمة واحدة (للتمرير المستمر)
+        val items = ArrayList<String>()
+        val surahStartPos = IntArray(surahs.length()) // موضع بداية كل سورة داخل القائمة
 
-        val surahObj = surahs.getJSONObject(index)
-        val ayahsArray = surahObj.getJSONArray("ayahs")
+        for (s in 0 until surahs.length()) {
+            surahStartPos[s] = items.size
+            val surahObj = surahs.getJSONObject(s)
+            val ayahsArray = surahObj.getJSONArray("ayahs")
 
-        val items = ArrayList<String>(ayahsArray.length())
-        for (i in 0 until ayahsArray.length()) {
-            items.add(ayahsArray.getString(i))
+            for (i in 0 until ayahsArray.length()) {
+                items.add(ayahsArray.getString(i))
+            }
         }
 
         // ✅ خط Amiri Quran
@@ -45,12 +48,35 @@ class MainActivity : AppCompatActivity() {
         val lm = LinearLayoutManager(this)
         b.rvAyah.layoutManager = lm
 
-        // ✅ Divider مخصص (خط فاصل جميل)
+        // ✅ Divider مخصص
         val divider = DividerItemDecoration(this, lm.orientation)
         ContextCompat.getDrawable(this, R.drawable.divider_ayah)?.let { divider.setDrawable(it) }
         b.rvAyah.addItemDecoration(divider)
 
         // ✅ Adapter
         b.rvAyah.adapter = AyahAdapter(items, amiri)
+
+        // ✅ الانتقال لموضع السورة من الفهرس أو استرجاع المرجعية
+        val prefs = getSharedPreferences("mashaf", MODE_PRIVATE)
+        val savedPos = prefs.getInt("last_pos", 0).coerceAtLeast(0)
+
+        val indexFromIndex = intent.getIntExtra("surahIndex", -1)
+        val targetPos =
+            if (indexFromIndex in 0 until surahs.length()) surahStartPos[indexFromIndex]
+            else savedPos
+
+        b.rvAyah.post { b.rvAyah.scrollToPosition(targetPos) }
+    }
+
+    override fun onPause() {
+        super.onPause()
+
+        val lm = b.rvAyah.layoutManager as LinearLayoutManager
+        val pos = lm.findFirstVisibleItemPosition().coerceAtLeast(0)
+
+        getSharedPreferences("mashaf", MODE_PRIVATE)
+            .edit()
+            .putInt("last_pos", pos)
+            .apply()
     }
 }
