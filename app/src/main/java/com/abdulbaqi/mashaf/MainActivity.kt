@@ -15,59 +15,41 @@ class MainActivity : AppCompatActivity() {
     private lateinit var b: ActivityMainBinding
     private lateinit var lm: LinearLayoutManager
     private lateinit var adapter: QuranAdapter
+    private val items = ArrayList<QItem>(12000)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // قفل الوضع العمودي
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
 
+        // ✅ قراءة quran.json
         val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
         val surahs = JSONArray(jsonText)
 
-        // ✅ قائمة واحدة لكل المصحف (عنوان سورة + آياتها)
-        val items = ArrayList<QItem>(12000)
-
+        // ✅ تحويل المصحف إلى قائمة واحدة (عنوان سورة + آياتها)
+        items.clear()
         for (s in 0 until surahs.length()) {
             val surahObj = surahs.getJSONObject(s)
             val name = surahObj.getString("name")
-            items.add(QItem.SurahTitle(name, s))
 
+            // عنوان السورة
+            items.add(QItem.SurahTitle(name = name, surahIndex = s))
+
+            // الآيات
             val ayahsArray = surahObj.getJSONArray("ayahs")
-
-            var counter = 0 // ✅ عداد الآيات المرقّمة داخل السورة
-
             for (a in 0 until ayahsArray.length()) {
-                val raw = ayahsArray.getString(a)
-                val text = raw
+                val text = ayahsArray.getString(a)
                     .replace("\r", " ")
                     .replace("\n", " ")
                     .replace(Regex("\\s+"), " ")
                     .trim()
 
-                val isFatiha = (s == 0)
-
-                val isBismillah =
-                    text.contains("بسم الله") && text.contains("الرحمن") && text.contains("الرحيم")
-
-                val isSalawatOrDecor =
-                    text.contains("اللهم صل") || text.startsWith("✽") || text.endsWith("✽")
-
-                // ✅ القاعدة:
-                // - الفاتحة: البسملة مرقمة
-                // - غير الفاتحة: البسملة بدون رقم
-                // - سطر الصلاة/الزخرفة بدون رقم
-                val number: Int? = when {
-                    isSalawatOrDecor -> null
-                    (!isFatiha && isBismillah) -> null
-                    else -> {
-                        counter += 1
-                        counter
-                    }
-                }
-
-                items.add(QItem.Ayah(text, s, a, number))
+                // ✅ مهم: 3 معاملات فقط (لا تضيف رقم هنا)
+                items.add(QItem.Ayah(text = text, surahIndex = s, ayahIndex = a))
             }
         }
 
@@ -79,12 +61,12 @@ class MainActivity : AppCompatActivity() {
         adapter = QuranAdapter(items, amiri)
         b.rvAyah.adapter = adapter
 
-        // ✅ Divider (خط فاصل)
+        // ✅ Divider مخصص (خط فاصل)
         val divider = DividerItemDecoration(this, lm.orientation)
         ContextCompat.getDrawable(this, R.drawable.divider_ayah)?.let { divider.setDrawable(it) }
         b.rvAyah.addItemDecoration(divider)
 
-        // ✅ إذا جاء طلب من الفهرس: افتح السورة المطلوبة في أعلى الشاشة
+        // ✅ إذا جاء طلب من الفهرس: اذهب لبداية السورة المطلوبة واجعلها أعلى الصفحة
         val fromIndex = intent.getBooleanExtra("fromIndex", false)
         val wantedSurah = intent.getIntExtra("surahIndex", 0)
 
@@ -92,7 +74,7 @@ class MainActivity : AppCompatActivity() {
             val pos = items.indexOfFirst { it is QItem.SurahTitle && it.surahIndex == wantedSurah }
             if (pos >= 0) b.rvAyah.post { lm.scrollToPositionWithOffset(pos, 0) }
         } else {
-            // ✅ متابعة القراءة (إشارة مرجعية)
+            // ✅ متابعة القراءة (Bookmark)
             if (BookmarkStore.hasBookmark(this)) {
                 val s = BookmarkStore.getSurahIndex(this)
                 val a = BookmarkStore.getAyahIndex(this)
@@ -106,7 +88,7 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
 
-        // ✅ حفظ الإشارة المرجعية: أول "آية" ظاهرة (نتجاوز عنوان السورة)
+        // ✅ حفظ الإشارة المرجعية (أول آية ظاهرة)
         val pos = lm.findFirstVisibleItemPosition()
         if (pos < 0) return
 
