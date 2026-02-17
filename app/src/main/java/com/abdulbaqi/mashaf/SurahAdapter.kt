@@ -10,22 +10,29 @@ class SurahAdapter(
     private val names: List<String>,
     private val bookmarkedIndex: Int,
     private val onClick: (Int) -> Unit
-) : RecyclerView.Adapter<SurahAdapter.VH>() {
+) : RecyclerView.Adapter<SurahAdapter.SurahVH>() {
 
-    class VH(val b: ItemSurahBinding) : RecyclerView.ViewHolder(b.root)
+    class SurahVH(val b: ItemSurahBinding) : RecyclerView.ViewHolder(b.root)
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-        val b = ItemSurahBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return VH(b)
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SurahVH {
+        val binding = ItemSurahBinding.inflate(
+            LayoutInflater.from(parent.context),
+            parent,
+            false
+        )
+        return SurahVH(binding)
     }
 
-    override fun onBindViewHolder(holder: VH, position: Int) {
-        holder.b.tvName.text = names[position]
+    override fun onBindViewHolder(holder: SurahVH, position: Int) {
+        val name = names[position]
+        holder.b.tvName.text = name
 
-        // ✅ إظهار نجمة الإشارة فقط على السورة المحفوظة
-        holder.b.ivBookmark.visibility = if (position == bookmarkedIndex) View.VISIBLE else View.GONE
+        holder.b.ivBookmark.visibility =
+            if (position == bookmarkedIndex) View.VISIBLE else View.GONE
 
-        holder.b.root.setOnClickListener { onClick(position) }
+        holder.b.root.setOnClickListener {
+            onClick(position) // ✅ يرسل رقم السورة الصحيح
+        }
     }
 
     override fun getItemCount(): Int = names.size
