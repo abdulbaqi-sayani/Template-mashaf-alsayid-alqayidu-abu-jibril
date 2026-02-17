@@ -27,7 +27,6 @@ class IndexActivity : AppCompatActivity() {
 
         b.rvSurah.layoutManager = LinearLayoutManager(this)
         b.rvSurah.adapter = SurahAdapter(names) { position ->
-
             val intent = Intent(this, MainActivity::class.java)
             intent.putExtra("surahIndex", position)
             startActivity(intent)
