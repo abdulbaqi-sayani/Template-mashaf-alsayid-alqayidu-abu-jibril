@@ -1,12 +1,14 @@
 package com.abdulbaqi.mashaf
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.abdulbaqi.mashaf.databinding.ItemSurahBinding
 
 class SurahAdapter(
-    private val items: List<String>,
+    private val names: List<String>,
+    private val bookmarkedIndex: Int,
     private val onClick: (Int) -> Unit
 ) : RecyclerView.Adapter<SurahAdapter.VH>() {
 
@@ -18,9 +20,13 @@ class SurahAdapter(
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) {
-        holder.b.tvName.text = items[position]
+        holder.b.tvName.text = names[position]
+
+        // ✅ إظهار نجمة الإشارة فقط على السورة المحفوظة
+        holder.b.ivBookmark.visibility = if (position == bookmarkedIndex) View.VISIBLE else View.GONE
+
         holder.b.root.setOnClickListener { onClick(position) }
     }
 
-    override fun getItemCount(): Int = items.size
+    override fun getItemCount(): Int = names.size
 }
