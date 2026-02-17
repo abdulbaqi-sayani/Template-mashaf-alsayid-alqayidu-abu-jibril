@@ -3,6 +3,7 @@ package com.abdulbaqi.mashaf
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -37,15 +38,19 @@ class MainActivity : AppCompatActivity() {
             items.add(ayahsArray.getString(i))
         }
 
+        // ✅ خط Amiri Quran
         val amiri = ResourcesCompat.getFont(this, R.font.amiri_quran)
 
+        // ✅ RecyclerView
         val lm = LinearLayoutManager(this)
         b.rvAyah.layoutManager = lm
 
-        // ✅ خط فاصل بين العناصر
+        // ✅ Divider مخصص (خط فاصل جميل)
         val divider = DividerItemDecoration(this, lm.orientation)
+        ContextCompat.getDrawable(this, R.drawable.divider_ayah)?.let { divider.setDrawable(it) }
         b.rvAyah.addItemDecoration(divider)
 
+        // ✅ Adapter
         b.rvAyah.adapter = AyahAdapter(items, amiri)
     }
 }
