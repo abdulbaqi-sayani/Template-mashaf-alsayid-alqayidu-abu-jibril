@@ -7,11 +7,19 @@ import androidx.recyclerview.widget.RecyclerView
 import com.abdulbaqi.mashaf.databinding.ItemAyahBinding
 
 class AyahAdapter(
-    private val items: List<String>,
+    rawItems: List<String>,
     private val typeface: Typeface?
 ) : RecyclerView.Adapter<AyahAdapter.VH>() {
 
+    data class Row(val text: String, val number: Int?) // number=null => بدون رقم
+
+    private val rows: List<Row>
+
     class VH(val b: ItemAyahBinding) : RecyclerView.ViewHolder(b.root)
+
+    init {
+        rows = buildRows(rawItems)
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val b = ItemAyahBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -23,40 +31,93 @@ class AyahAdapter(
         return n.toString().map { d[it - '0'] }.joinToString("")
     }
 
-    // ✅ حذف أرقام الأقواس من النص: (1) (٢) ... إلخ
+    // حذف (1) (٢) ... إلخ
     private fun removeBracketNumbers(text: String): String {
-        // يحذف (123) أو (١٢٣)
         return text.replace(Regex("\\(([0-9٠-٩]+)\\)"), "").trim()
     }
 
-    // ✅ هل هذا السطر عنوان سورة؟ (كما في ملفاتك: "سوره ...")
     private fun isSurahTitle(text: String): Boolean {
         val t = text.trim()
-        return t.contains("سوره") || t.contains("سورة")
+        return t.contains("سوره") || t.contains("سورة") || t.contains("✿")
+    }
+
+    private fun isSalawatLine(text: String): Boolean {
+        val t = text.trim()
+        return t.contains("اللَّهُمَّ") || t.contains("اللهم") || t.contains("صَلِّ") || t.contains("صل")
+    }
+
+    private fun isBasmala(text: String): Boolean {
+        val t = text.trim()
+        // مرن حتى لو كانت كتابة مختلفة قليلًا
+        return t.contains("بسم") && (t.contains("الله") || t.contains("ٱللَّه"))
+    }
+
+    private fun isFatihaTitle(text: String): Boolean {
+        val t = text.trim()
+        return t.contains("الفاتحة") || t.contains("ڡاتحه") || t.contains("فاتحة")
+    }
+
+    private fun buildRows(rawItems: List<String>): List<Row> {
+        val cleaned = rawItems.map { it.trim() }.filter { it.isNotEmpty() }
+        if (cleaned.isEmpty()) return emptyList()
+
+        val title = cleaned.first()
+        val isFatiha = isFatihaTitle(title)
+
+        val out = ArrayList<Row>(cleaned.size)
+
+        var ayahCounter = 0
+
+        for ((index, item) in cleaned.withIndex()) {
+            val raw = item.trim()
+
+            // 1) عنوان السورة بدون رقم
+            if (index == 0 && isSurahTitle(raw)) {
+                out.add(Row(raw, null))
+                continue
+            }
+
+            // 2) سطر الصلاة على محمد وآل محمد بدون رقم
+            if (isSalawatLine(raw)) {
+                out.add(Row(raw, null))
+                continue
+            }
+
+            // 3) البسملة: تُرقّم فقط في الفاتحة، وبقية السور بدون رقم
+            if (isBasmala(raw) && !isFatiha) {
+                out.add(Row(raw, null))
+                continue
+            }
+
+            // 4) آية عادية: احذف أرقام الأقواس ثم رقّمها
+            val text = removeBracketNumbers(raw)
+            if (text.isEmpty()) {
+                out.add(Row(raw, null))
+                continue
+            }
+
+            ayahCounter += 1
+            out.add(Row(text, ayahCounter))
+        }
+
+        return out
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) {
+        val row = rows[position]
 
-        val raw = items[position].trim()
+        if (row.number == null) {
+            holder.b.tvAyah.text = row.text
+        } else {
+            val number = toArabicDigits(row.number)
+            val marker = "﴿" + number + "﴾"
 
-        // ✅ عنوان السورة: لا رقم مزخرف ولا أقواس
-        if (position == 0 && isSurahTitle(raw)) {
-            holder.b.tvAyah.text = raw
-            if (typeface != null) holder.b.tvAyah.typeface = typeface
-            return
+            // ✅ الرقم في آخر الآية (نهاية السطر)
+            holder.b.tvAyah.text = row.text + "  " + marker
         }
-
-        // ✅ آية عادية: احذف (1)(2) من النص ثم أضف رقم مزخرف واحد فقط
-        val cleanText = removeBracketNumbers(raw)
-
-        val number = toArabicDigits(position)  // لأن position=1 ستكون أول آية بعد العنوان
-        val marker = "﴿" + number + "﴾"
-
-        // ضع الرقم قبل النص ليظهر يميناً (بداية السطر في RTL)
-        holder.b.tvAyah.text = marker + "  " + cleanText
 
         if (typeface != null) holder.b.tvAyah.typeface = typeface
     }
 
-    override fun getItemCount(): Int = items.size
+    override fun getItemCount(): Int = rows.size
 }
