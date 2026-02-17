@@ -24,31 +24,33 @@ class IndexActivity : AppCompatActivity() {
             names.add(surahs.getJSONObject(i).getString("name"))
         }
 
-        val bookmarkedSurah = if (BookmarkStore.hasBookmark(this)) {
-            BookmarkStore.getSurahIndex(this)
-        } else -1
+        // ✅ اجلب اسم السورة المحفوظة (بدل index) حتى لا يتأثر بالحذف/الترتيب
+        val bookmarkedName: String? = if (BookmarkStore.hasBookmark(this)) {
+            val bookmarkedIndex = BookmarkStore.getSurahIndex(this)
+            if (bookmarkedIndex in 0 until names.size) names[bookmarkedIndex] else null
+        } else null
+
+        val bookmarkedPos = if (bookmarkedName != null) names.indexOf(bookmarkedName) else -1
 
         b.rvIndex.layoutManager = LinearLayoutManager(this)
         b.rvIndex.adapter = SurahAdapter(
             names = names,
-            bookmarkedIndex = bookmarkedSurah
-        ) { index ->
-            // ✅ فتح السورة من أعلى الصفحة دائمًا عند الضغط من الفهرس
+            bookmarkedIndex = bookmarkedPos
+        ) { position ->
+            val surahName = names[position]
             startActivity(
                 Intent(this, MainActivity::class.java)
-                    .putExtra("surahIndex", index)
                     .putExtra("fromIndex", true)
+                    .putExtra("surahName", surahName) // ✅ بالاسم بدل الرقم
             )
         }
 
-        // ✅ متابعة القراءة من الإشارة المرجعية
+        // ✅ متابعة القراءة من الإشارة المرجعية (نتركها كما هي: ستفتح على الإشارة)
         b.btnContinue.setOnClickListener {
             if (!BookmarkStore.hasBookmark(this)) return@setOnClickListener
-            val s = BookmarkStore.getSurahIndex(this)
             startActivity(
                 Intent(this, MainActivity::class.java)
-                    .putExtra("surahIndex", s)
-                    .putExtra("fromIndex", false) // يعني: افتح على الإشارة
+                    .putExtra("fromIndex", false) // افتح على الإشارة
             )
         }
     }
