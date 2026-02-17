@@ -8,8 +8,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
+        <!-- الشاشة الأولى: الفهرس -->
         <activity
-            android:name=".MainActivity"
+            android:name=".IndexActivity"
             android:exported="true">
 
             <intent-filter>
@@ -18,6 +19,11 @@
             </intent-filter>
 
         </activity>
+
+        <!-- شاشة عرض السورة -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false" />
 
     </application>
 
