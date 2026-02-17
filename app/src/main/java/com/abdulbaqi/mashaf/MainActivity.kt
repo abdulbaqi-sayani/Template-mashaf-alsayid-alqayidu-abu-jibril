@@ -3,7 +3,6 @@ package com.abdulbaqi.mashaf
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -13,70 +12,58 @@ import org.json.JSONArray
 class MainActivity : AppCompatActivity() {
 
     private lateinit var b: ActivityMainBinding
+    private lateinit var lm: LinearLayoutManager
+
+    private var surahIndex: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ✅ قفل الوضع العمودي
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
 
-        // ✅ قراءة quran.json
+        // السورة القادمة من الفهرس
+        surahIndex = intent.getIntExtra("surahIndex", 0)
+
         val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
         val surahs = JSONArray(jsonText)
+        val surahObj = surahs.getJSONObject(surahIndex)
+        val ayahsArray = surahObj.getJSONArray("ayahs")
 
-        // ✅ اجمع كل المصحف في قائمة واحدة (للتمرير المستمر)
-        val items = ArrayList<String>()
-        val surahStartPos = IntArray(surahs.length()) // موضع بداية كل سورة داخل القائمة
-
-        for (s in 0 until surahs.length()) {
-            surahStartPos[s] = items.size
-            val surahObj = surahs.getJSONObject(s)
-            val ayahsArray = surahObj.getJSONArray("ayahs")
-
-            for (i in 0 until ayahsArray.length()) {
-                items.add(ayahsArray.getString(i))
-            }
+        val ayahs = ArrayList<String>(ayahsArray.length())
+        for (i in 0 until ayahsArray.length()) {
+            ayahs.add(ayahsArray.getString(i))
         }
 
-        // ✅ خط Amiri Quran
         val amiri = ResourcesCompat.getFont(this, R.font.amiri_quran)
 
-        // ✅ RecyclerView
-        val lm = LinearLayoutManager(this)
+        lm = LinearLayoutManager(this)
         b.rvAyah.layoutManager = lm
+        b.rvAyah.adapter = AyahAdapter(ayahs, amiri)
 
-        // ✅ Divider مخصص
+        // Divider (إذا كنت تستخدمه)
         val divider = DividerItemDecoration(this, lm.orientation)
-        ContextCompat.getDrawable(this, R.drawable.divider_ayah)?.let { divider.setDrawable(it) }
+        val d = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.divider_ayah)
+        if (d != null) divider.setDrawable(d)
         b.rvAyah.addItemDecoration(divider)
 
-        // ✅ Adapter
-        b.rvAyah.adapter = AyahAdapter(items, amiri)
-
-        // ✅ الانتقال لموضع السورة من الفهرس أو استرجاع المرجعية
-        val prefs = getSharedPreferences("mashaf", MODE_PRIVATE)
-        val savedPos = prefs.getInt("last_pos", 0).coerceAtLeast(0)
-
-        val indexFromIndex = intent.getIntExtra("surahIndex", -1)
-        val targetPos =
-            if (indexFromIndex in 0 until surahs.length()) surahStartPos[indexFromIndex]
-            else savedPos
-
-        b.rvAyah.post { b.rvAyah.scrollToPosition(targetPos) }
+        // ✅ الرجوع لآخر موضع محفوظ إذا كانت نفس السورة
+        if (BookmarkStore.hasBookmark(this)) {
+            val savedSurah = BookmarkStore.getSurahIndex(this)
+            val savedAyah = BookmarkStore.getAyahIndex(this)
+            if (savedSurah == surahIndex && savedAyah >= 0) {
+                b.rvAyah.post { lm.scrollToPositionWithOffset(savedAyah, 0) }
+            }
+        }
     }
 
     override fun onPause() {
         super.onPause()
-
-        val lm = b.rvAyah.layoutManager as LinearLayoutManager
-        val pos = lm.findFirstVisibleItemPosition().coerceAtLeast(0)
-
-        getSharedPreferences("mashaf", MODE_PRIVATE)
-            .edit()
-            .putInt("last_pos", pos)
-            .apply()
+        // ✅ حفظ موضع القراءة تلقائيًا
+        val firstVisible = lm.findFirstVisibleItemPosition()
+        if (firstVisible >= 0) {
+            BookmarkStore.save(this, surahIndex, firstVisible)
+        }
     }
 }
