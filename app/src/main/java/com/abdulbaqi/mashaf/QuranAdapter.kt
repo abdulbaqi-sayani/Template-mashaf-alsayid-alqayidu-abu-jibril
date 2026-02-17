@@ -3,7 +3,6 @@ package com.abdulbaqi.mashaf
 import android.graphics.Typeface
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import android.view.View
 import androidx.recyclerview.widget.RecyclerView
 import com.abdulbaqi.mashaf.databinding.ItemAyahBinding
 import com.abdulbaqi.mashaf.databinding.ItemSurahTitleBinding
@@ -14,8 +13,8 @@ class QuranAdapter(
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
-        private const val TYPE_SURAH = 0
-        private const val TYPE_AYAH = 1
+        private const val TYPE_SURAH = 1
+        private const val TYPE_AYAH = 2
     }
 
     override fun getItemViewType(position: Int): Int {
@@ -26,52 +25,45 @@ class QuranAdapter(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        val inflater = LayoutInflater.from(parent.context)
+        return when (viewType) {
+            TYPE_SURAH -> SurahVH(ItemSurahTitleBinding.inflate(inflater, parent, false))
+            else -> AyahVH(ItemAyahBinding.inflate(inflater, parent, false))
+        }
+    }
 
-        return if (viewType == TYPE_SURAH) {
-            val binding = ItemSurahTitleBinding.inflate(
-                LayoutInflater.from(parent.context),
-                parent,
-                false
-            )
-            SurahViewHolder(binding)
-        } else {
-            val binding = ItemAyahBinding.inflate(
-                LayoutInflater.from(parent.context),
-                parent,
-                false
-            )
-            AyahViewHolder(binding)
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        when (val item = items[position]) {
+
+            is QItem.SurahTitle -> {
+                val h = holder as SurahVH
+                h.b.tvSurahName.typeface = amiri
+                h.b.tvSurahName.text = item.name
+            }
+
+            is QItem.Ayah -> {
+                val h = holder as AyahVH
+                h.b.tvAyah.typeface = amiri
+
+                // ✅ رقم الآية داخل الأقواس (١) بدون أي رموز ﴿﴾
+                val ayahNumber = (item.ayahIndex + 1) // يبدأ من 1
+                val numberText = "(${toArabicDigits(ayahNumber)})"
+
+                // ✅ الرقم في آخر الآية
+                h.b.tvAyah.text = "${item.text} $numberText"
+            }
         }
     }
 
     override fun getItemCount(): Int = items.size
 
-    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+    fun getItemAt(position: Int): QItem = items[position]
 
-        when (val item = items[position]) {
+    class SurahVH(val b: ItemSurahTitleBinding) : RecyclerView.ViewHolder(b.root)
+    class AyahVH(val b: ItemAyahBinding) : RecyclerView.ViewHolder(b.root)
 
-            is QItem.SurahTitle -> {
-                val h = holder as SurahViewHolder
-                h.b.tvSurahName.text = item.name
-            }
-
-            is QItem.Ayah -> {
-                val h = holder as AyahViewHolder
-
-                h.b.tvAyah.typeface = amiri
-                h.b.tvAyah.text = item.text
-
-                val ayahNumber = item.ayahIndex + 1
-                h.b.tvNumber.visibility = View.VISIBLE
-                h.b.tvNumber.text = formatOrnateAyahNumber(ayahNumber)
-            }
-        }
-    }
-
-    // ✅ تنسيق الرقم بهذا الشكل ﴿٥﴾
-    private fun formatOrnateAyahNumber(n: Int): String {
-
-        val arabic = n.toString()
+    private fun toArabicDigits(n: Int): String {
+        return n.toString()
             .replace("0", "٠")
             .replace("1", "١")
             .replace("2", "٢")
@@ -82,17 +74,5 @@ class QuranAdapter(
             .replace("7", "٧")
             .replace("8", "٨")
             .replace("9", "٩")
-
-        return "﴿$arabic﴾"
     }
-
-    fun getItemAt(position: Int): QItem {
-        return items[position]
-    }
-
-    class SurahViewHolder(val b: ItemSurahTitleBinding) :
-        RecyclerView.ViewHolder(b.root)
-
-    class AyahViewHolder(val b: ItemAyahBinding) :
-        RecyclerView.ViewHolder(b.root)
 }
