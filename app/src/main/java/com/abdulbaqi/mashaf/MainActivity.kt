@@ -22,27 +22,30 @@ class MainActivity : AppCompatActivity() {
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
 
-        // ✅ قراءة البيانات من quran.json
+        // ✅ قراءة quran.json
         val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
         val surahs = JSONArray(jsonText)
-        val firstSurah = surahs.getJSONObject(0)
-        val ayahsArray = firstSurah.getJSONArray("ayahs")
 
-        val ayahs = ArrayList<String>(ayahsArray.length())
+        // ✅ استلام رقم السورة من الفهرس (وإلا افتح الأولى)
+        val index = intent.getIntExtra("surahIndex", 0).coerceIn(0, surahs.length() - 1)
+
+        val surahObj = surahs.getJSONObject(index)
+        val ayahsArray = surahObj.getJSONArray("ayahs")
+
+        val items = ArrayList<String>(ayahsArray.length())
         for (i in 0 until ayahsArray.length()) {
-            ayahs.add(ayahsArray.getString(i))
+            items.add(ayahsArray.getString(i))
         }
 
-        // ✅ خط Amiri Quran
         val amiri = ResourcesCompat.getFont(this, R.font.amiri_quran)
 
-        // ✅ RecyclerView + Divider
         val lm = LinearLayoutManager(this)
         b.rvAyah.layoutManager = lm
 
+        // ✅ خط فاصل بين العناصر
         val divider = DividerItemDecoration(this, lm.orientation)
         b.rvAyah.addItemDecoration(divider)
 
-        b.rvAyah.adapter = AyahAdapter(ayahs, amiri)
+        b.rvAyah.adapter = AyahAdapter(items, amiri)
     }
 }
