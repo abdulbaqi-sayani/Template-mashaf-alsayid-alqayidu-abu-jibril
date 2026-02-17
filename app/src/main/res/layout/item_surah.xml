@@ -1,13 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<TextView
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/tvName"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="18dp"
-    android:textSize="20sp"
-    android:textDirection="rtl"
-    android:layoutDirection="rtl"
-    android:gravity="end"
-    android:textAlignment="viewEnd"
-    android:textColor="#1A1A1A"/>
+    android:orientation="horizontal"
+    android:padding="14dp"
+    android:gravity="center_vertical"
+    android:layoutDirection="rtl">
+
+    <ImageView
+        android:id="@+id/ivBookmark"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:src="@android:drawable/btn_star_big_on"
+        android:contentDescription="bookmark"
+        android:visibility="gone"
+        android:layout_marginStart="8dp" />
+
+    <TextView
+        android:id="@+id/tvName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textSize="18sp"
+        android:textColor="#111"
+        android:gravity="end" />
+
+</LinearLayout>
