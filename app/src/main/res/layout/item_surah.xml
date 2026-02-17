@@ -9,4 +9,5 @@
     android:textDirection="rtl"
     android:layoutDirection="rtl"
     android:gravity="end"
+    android:textAlignment="viewEnd"
     android:textColor="#1A1A1A"/>
