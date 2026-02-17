@@ -23,8 +23,8 @@ class MainActivity : AppCompatActivity() {
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
 
-        // السورة القادمة من الفهرس
         surahIndex = intent.getIntExtra("surahIndex", 0)
+        val openedFromIndex = intent.getBooleanExtra("fromIndex", false)
 
         val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
         val surahs = JSONArray(jsonText)
@@ -33,7 +33,13 @@ class MainActivity : AppCompatActivity() {
 
         val ayahs = ArrayList<String>(ayahsArray.length())
         for (i in 0 until ayahsArray.length()) {
-            ayahs.add(ayahsArray.getString(i))
+            ayahs.add(
+                ayahsArray.getString(i)
+                    .replace("\r", " ")
+                    .replace("\n", " ")
+                    .replace(Regex("\\s+"), " ")
+                    .trim()
+            )
         }
 
         val amiri = ResourcesCompat.getFont(this, R.font.amiri_quran)
@@ -42,18 +48,27 @@ class MainActivity : AppCompatActivity() {
         b.rvAyah.layoutManager = lm
         b.rvAyah.adapter = AyahAdapter(ayahs, amiri)
 
-        // Divider (إذا كنت تستخدمه)
+        // Divider مخصص (اختياري)
         val divider = DividerItemDecoration(this, lm.orientation)
         val d = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.divider_ayah)
         if (d != null) divider.setDrawable(d)
         b.rvAyah.addItemDecoration(divider)
 
-        // ✅ الرجوع لآخر موضع محفوظ إذا كانت نفس السورة
-        if (BookmarkStore.hasBookmark(this)) {
-            val savedSurah = BookmarkStore.getSurahIndex(this)
-            val savedAyah = BookmarkStore.getAyahIndex(this)
-            if (savedSurah == surahIndex && savedAyah >= 0) {
-                b.rvAyah.post { lm.scrollToPositionWithOffset(savedAyah, 0) }
+        // ✅ من الفهرس: افتح من أعلى
+        if (openedFromIndex) {
+            b.rvAyah.post { lm.scrollToPositionWithOffset(0, 0) }
+        } else {
+            // ✅ من "متابعة القراءة": افتح على الإشارة إن كانت لنفس السورة
+            if (BookmarkStore.hasBookmark(this)) {
+                val savedSurah = BookmarkStore.getSurahIndex(this)
+                val savedAyah = BookmarkStore.getAyahIndex(this)
+                if (savedSurah == surahIndex && savedAyah >= 0) {
+                    b.rvAyah.post { lm.scrollToPositionWithOffset(savedAyah, 0) }
+                } else {
+                    b.rvAyah.post { lm.scrollToPositionWithOffset(0, 0) }
+                }
+            } else {
+                b.rvAyah.post { lm.scrollToPositionWithOffset(0, 0) }
             }
         }
     }
