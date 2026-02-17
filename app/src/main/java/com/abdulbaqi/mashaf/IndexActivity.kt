@@ -31,17 +31,25 @@ class IndexActivity : AppCompatActivity() {
         b.rvIndex.layoutManager = LinearLayoutManager(this)
         b.rvIndex.adapter = SurahAdapter(
             names = names,
-            bookmarkedIndex = bookmarkedSurah,
-            onClick = { index ->
-                startActivity(Intent(this, MainActivity::class.java).putExtra("surahIndex", index))
-            }
-        )
+            bookmarkedIndex = bookmarkedSurah
+        ) { index ->
+            // ✅ فتح السورة من أعلى الصفحة دائمًا عند الضغط من الفهرس
+            startActivity(
+                Intent(this, MainActivity::class.java)
+                    .putExtra("surahIndex", index)
+                    .putExtra("fromIndex", true)
+            )
+        }
 
-        // زر متابعة القراءة
+        // ✅ متابعة القراءة من الإشارة المرجعية
         b.btnContinue.setOnClickListener {
             if (!BookmarkStore.hasBookmark(this)) return@setOnClickListener
             val s = BookmarkStore.getSurahIndex(this)
-            startActivity(Intent(this, MainActivity::class.java).putExtra("surahIndex", s))
+            startActivity(
+                Intent(this, MainActivity::class.java)
+                    .putExtra("surahIndex", s)
+                    .putExtra("fromIndex", false) // يعني: افتح على الإشارة
+            )
         }
     }
 }
