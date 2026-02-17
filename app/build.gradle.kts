@@ -4,13 +4,13 @@ plugins {
 }
 
 android {
-    namespace = "com.abdulbaqi.mashaf"
-    compileSdk = 33
+    compileSdk = 31
 
     defaultConfig {
-        applicationId = "com.abdulbaqi.mashaf"
         minSdk = 21
-        targetSdk = 33
+        targetSdk = 31
+    }
+}
         versionCode = 1
         versionName = "1.0"
     }
