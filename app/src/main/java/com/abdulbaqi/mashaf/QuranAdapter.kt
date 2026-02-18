@@ -1,10 +1,12 @@
 package com.abdulbaqi.mashaf
 
+import android.graphics.Color
 import android.graphics.Typeface
-import android.text.Spannable
-import android.text.SpannableStringBuilder
+import android.text.SpannableString
+import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.abdulbaqi.mashaf.databinding.ItemAyahBinding
@@ -18,156 +20,148 @@ class QuranAdapter(
     companion object {
         private const val TYPE_TITLE = 0
         private const val TYPE_AYAH = 1
+
+        private const val RED = "#C62828"     // أحمر للأرقام
+        private const val GREEN = "#2E7D32"   // أخضر للزخارف
     }
 
-    // ✅ علشان “قسم الدعاء” مثل دعاء ختم القرآن
-    private val noNumberForAyah = BooleanArray(items.size)
-
-    init {
-        var inDuaSection = false
-        for (i in items.indices) {
-            when (val it = items[i]) {
-                is QItem.SurahTitle -> {
-                    inDuaSection = it.name.contains("دعاء", ignoreCase = true)
-                }
-                is QItem.Ayah -> {
-                    if (inDuaSection) noNumberForAyah[i] = true
-                    if (isDuaHeader(it.text)) noNumberForAyah[i] = true
-                }
-            }
-        }
-    }
-
-    inner class TitleVH(val b: ItemSurahTitleBinding) : RecyclerView.ViewHolder(b.root)
-    inner class AyahVH(val b: ItemAyahBinding) : RecyclerView.ViewHolder(b.root)
-
-    override fun getItemViewType(position: Int): Int {
-        return when (items[position]) {
+    override fun getItemViewType(position: Int): Int =
+        when (items[position]) {
             is QItem.SurahTitle -> TYPE_TITLE
             is QItem.Ayah -> TYPE_AYAH
         }
-    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         return if (viewType == TYPE_TITLE) {
-            TitleVH(ItemSurahTitleBinding.inflate(LayoutInflater.from(parent.context), parent, false))
+            val b = ItemSurahTitleBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+            TitleVH(b)
         } else {
-            AyahVH(ItemAyahBinding.inflate(LayoutInflater.from(parent.context), parent, false))
-        }
-    }
-
-    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        when (val item = items[position]) {
-
-            is QItem.SurahTitle -> {
-                val h = holder as TitleVH
-                h.b.tvSurahName.typeface = amiri
-                h.b.tvSurahName.text = item.name
-            }
-
-            is QItem.Ayah -> {
-                val h = holder as AyahVH
-                val ctx = h.itemView.context
-
-                h.b.tvAyah.typeface = amiri
-
-                val showNumber = shouldShowNumber(
-                    position = position,
-                    surahIndex = item.surahIndex,
-                    text = item.text
-                )
-
-                val red = ctx.getColor(android.R.color.holo_red_dark)
-                val green = ctx.getColor(android.R.color.holo_green_dark)
-
-                val sb = SpannableStringBuilder()
-
-                if (showNumber) {
-                    val num = "﴿${toArabicDigits(item.ayahIndex + 1)}﴾"
-                    val start = sb.length
-                    sb.append(num).append("  ")
-                    sb.setSpan(
-                        ForegroundColorSpan(red),
-                        start,
-                        start + num.length,
-                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
-                }
-
-                val textStart = sb.length
-                sb.append(item.text)
-
-                // ✅ لوّن الزخارف ❁ ❀ ✿ باللون الأخضر داخل النص
-                colorDecorations(sb, textStart, sb.length, green)
-
-                // ✅ (اختياري) لو عندك رموز ﴿﴾ داخل النص نفسه وتريدها خضراء/لا شيء، اتركها كما هي.
-                h.b.tvAyah.text = sb
-            }
+            val b = ItemAyahBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+            AyahVH(b)
         }
     }
 
     override fun getItemCount(): Int = items.size
 
-    fun getItemAt(position: Int): QItem = items[position]
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        when (val item = items[position]) {
 
-    // ---------------- Rules ----------------
+            is QItem.SurahTitle -> {
+                (holder as TitleVH).b.tvSurahName.text = item.name
+            }
 
-    private fun shouldShowNumber(position: Int, surahIndex: Int, text: String): Boolean {
-        if (noNumberForAyah[position]) return false
-        if (isSalawat(text)) return false
+            is QItem.Ayah -> {
+                val vh = holder as AyahVH
+                vh.b.tvAyah.typeface = amiri
 
-        // ✅ بسم الله: بدون رقم في كل السور إلا الفاتحة (surahIndex = 0)
-        if (isBasmalah(text) && surahIndex != 0) return false
+                val cleanedText = cleanText(item.text)
 
-        return true
-    }
+                val isFatiha = item.surahIndex == 0
 
-    private fun isBasmalah(t: String): Boolean {
-        val s = t.replace("ٮ", "ب")
-        return s.contains("بسم الله", ignoreCase = true) ||
-            s.contains("بِسۡمِ ٱللَّهِ", ignoreCase = true)
-    }
+                // 1) لا رقم للبسملة إلا الفاتحة
+                val isBasmala = cleanedText.contains("بِسۡمِ") || cleanedText.contains("بسم الله")
 
-    private fun isSalawat(t: String): Boolean {
-        val s = t.replace("ٮ", "ب")
-        return s.contains("اللهم صل", ignoreCase = true) ||
-            s.contains("اللَّهُمَّ صَلِّ", ignoreCase = true)
-    }
+                // 2) لا رقم للصلاة على محمد وآل محمد
+                val isSalawat = cleanedText.contains("اللهم صل") || cleanedText.contains("صَلِّ عَلَى مُحَمَّد")
 
-    private fun isDuaHeader(t: String): Boolean {
-        val s = t.replace("حتم", "ختم")
-        return s.contains("دعاء ختم", ignoreCase = true) ||
-            (s.contains("دعاء", ignoreCase = true) && s.contains("القرآن", ignoreCase = true))
-    }
+                // 3) لا رقم لدعاء ختم القرآن
+                val isKhatmDuaTitle = cleanedText.contains("دعاء ختم") || cleanedText.contains("ختم القران")
+                val isKhatmDuaBody = cleanedText.contains("اللهم ارحمني بالقرآن") || cleanedText.contains("واجعله لي إماما")
 
-    // ---------------- Styling helpers ----------------
+                // 4) لا رقم لـ "كلمة ختامية" (وأي نصوصها)
+                val isClosingSection =
+                    cleanedText.contains("صدقة جارية") ||
+                    cleanedText.contains("راجيًا القبول") ||
+                    cleanedText.contains("عبد الباقي محمد") ||
+                    cleanedText.contains("غفر الله له ولوالديه")
 
-    private fun colorDecorations(sb: SpannableStringBuilder, from: Int, to: Int, color: Int) {
-        val targets = charArrayOf('❁', '❀', '✿')
-        for (i in from until to) {
-            val c = sb[i]
-            if (targets.contains(c)) {
-                sb.setSpan(
-                    ForegroundColorSpan(color),
-                    i,
-                    i + 1,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
+                val shouldHideNumber =
+                    (isBasmala && !isFatiha) ||
+                    isSalawat ||
+                    isKhatmDuaTitle ||
+                    isKhatmDuaBody ||
+                    isClosingSection
+
+                if (shouldHideNumber) {
+                    vh.b.tvAyah.text = colorDecorations(cleanedText)
+                } else {
+                    val n = item.ayahIndex + 1
+                    val ornate = formatOrnateNumber(n)
+                    val line = "$ornate  $cleanedText"
+
+                    // أخضر للزخارف + أحمر للرقم المزخرف
+                    val sp = colorDecorations(line)
+                    colorFirstOccurrence(sp, ornate, RED)
+
+                    vh.b.tvAyah.text = sp
+                }
             }
         }
     }
 
-    private fun toArabicDigits(input: Int): String {
-        return input.toString()
-            .replace('0', '٠')
-            .replace('1', '١')
-            .replace('2', '٢')
-            .replace('3', '٣')
-            .replace('4', '٤')
-            .replace('5', '٥')
-            .replace('6', '٦')
-            .replace('7', '٧')
-            .replace('8', '٨')
-            .replace('9', '٩')
+    // ✅ إزالة (1) أو ( 1 ) أو (١) من أي مكان + تنظيف المسافات
+    private fun cleanText(text: String): String {
+        val removedParenNumbers = text.replace(Regex("""\(\s*[0-9٠-٩]+\s*\)"""), "")
+        return removedParenNumbers
+            .replace("\r", " ")
+            .replace("\n", " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
     }
+
+    // ✅ الرقم المزخرف بالشكل الذي تريده: ﴿١﴾
+    private fun formatOrnateNumber(n: Int): String {
+        val arabic = n.toString()
+            .replace("0", "٠")
+            .replace("1", "١")
+            .replace("2", "٢")
+            .replace("3", "٣")
+            .replace("4", "٤")
+            .replace("5", "٥")
+            .replace("6", "٦")
+            .replace("7", "٧")
+            .replace("8", "٨")
+            .replace("9", "٩")
+
+        return "﴿$arabic﴾"
+    }
+
+    // ✅ تلوين الزخارف ❀ ❁ ✿ بالأخضر
+    private fun colorDecorations(text: String): SpannableString {
+        val sp = SpannableString(text)
+        val symbols = listOf("❀", "❁", "✿")
+
+        for (sym in symbols) {
+            var i = text.indexOf(sym)
+            while (i >= 0) {
+                sp.setSpan(
+                    ForegroundColorSpan(Color.parseColor(GREEN)),
+                    i,
+                    i + sym.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                i = text.indexOf(sym, i + 1)
+            }
+        }
+        return sp
+    }
+
+    // ✅ تلوين أول ظهور لنص معين (هنا الرقم المزخرف) بالأحمر
+    private fun colorFirstOccurrence(sp: SpannableString, target: String, hex: String) {
+        val full = sp.toString()
+        val start = full.indexOf(target)
+        if (start >= 0) {
+            sp.setSpan(
+                ForegroundColorSpan(Color.parseColor(hex)),
+                start,
+                start + target.length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+    }
+
+    class TitleVH(val b: ItemSurahTitleBinding) : RecyclerView.ViewHolder(b.root)
+    class AyahVH(val b: ItemAyahBinding) : RecyclerView.ViewHolder(b.root)
+
+    fun getItemAt(position: Int): QItem = items[position]
 }
