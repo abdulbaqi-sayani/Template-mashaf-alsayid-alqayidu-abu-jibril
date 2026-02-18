@@ -10,28 +10,24 @@ class SurahAdapter(
     private val names: List<String>,
     private val bookmarkedIndex: Int,
     private val onClick: (Int) -> Unit
-) : RecyclerView.Adapter<SurahAdapter.SurahVH>() {
+) : RecyclerView.Adapter<SurahAdapter.VH>() {
 
-    class SurahVH(val b: ItemSurahBinding) : RecyclerView.ViewHolder(b.root)
+    class VH(val b: ItemSurahBinding) : RecyclerView.ViewHolder(b.root)
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SurahVH {
-        val binding = ItemSurahBinding.inflate(
-            LayoutInflater.from(parent.context),
-            parent,
-            false
-        )
-        return SurahVH(binding)
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+        val b = ItemSurahBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return VH(b)
     }
 
-    override fun onBindViewHolder(holder: SurahVH, position: Int) {
-        val name = names[position]
-        holder.b.tvName.text = name
+    override fun onBindViewHolder(holder: VH, position: Int) {
+        holder.b.tvName.text = names.getOrNull(position) ?: ""
 
         holder.b.ivBookmark.visibility =
             if (position == bookmarkedIndex) View.VISIBLE else View.GONE
 
         holder.b.root.setOnClickListener {
-            onClick(position) // ✅ يرسل رقم السورة الصحيح
+            val p = holder.bindingAdapterPosition
+            if (p != RecyclerView.NO_POSITION) onClick(p)
         }
     }
 
