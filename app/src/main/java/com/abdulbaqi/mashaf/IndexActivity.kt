@@ -1,4 +1,3 @@
-// IndexActivity.kt
 package com.abdulbaqi.mashaf
 
 import android.content.Intent
@@ -34,23 +33,19 @@ class IndexActivity : AppCompatActivity() {
             names = names,
             bookmarkedIndex = bookmarkedSurah
         ) { index ->
-            // ✅ أرسل الاسم + الرقم معًا (الاسم هو الأهم)
-            val surahName = names.getOrNull(index) ?: return@SurahAdapter
-
             startActivity(
                 Intent(this, MainActivity::class.java)
-                    .putExtra("fromIndex", true)
                     .putExtra("surahIndex", index)
-                    .putExtra("surahName", surahName)
+                    .putExtra("fromIndex", true)
             )
         }
 
-        // ✅ متابعة القراءة من الإشارة المرجعية
         b.btnContinue.setOnClickListener {
             if (!BookmarkStore.hasBookmark(this)) return@setOnClickListener
-
+            val s = BookmarkStore.getSurahIndex(this)
             startActivity(
                 Intent(this, MainActivity::class.java)
+                    .putExtra("surahIndex", s)
                     .putExtra("fromIndex", false)
             )
         }
