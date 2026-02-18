@@ -50,7 +50,6 @@ class QuranAdapter(
 
     private class TitleVH(private val b: ItemSurahTitleBinding) : RecyclerView.ViewHolder(b.root) {
         fun bind(item: QItem.SurahTitle) {
-            // مهم: لازم يكون في layout عنوان السورة TextView اسمه tvSurahName
             b.tvSurahName.text = item.name
         }
     }
@@ -78,9 +77,9 @@ class QuranAdapter(
             // (2) البسملة بلا رقم في كل السور ما عدا الفاتحة
             val isBasmalaLine =
                 item.ayahIndex == 0 &&
-                item.surahIndex != 0 &&
-                basmalaFirst &&
-                containsBasmala(cleanText)
+                    item.surahIndex != 0 &&
+                    basmalaFirst &&
+                    containsBasmala(cleanText)
 
             if (isBasmalaLine) {
                 b.tvAyah.text = colorDecorations(cleanText)
@@ -94,30 +93,32 @@ class QuranAdapter(
                 item.ayahIndex + 1 // الفاتحة أو السور بدون بسملة في البداية
             }
 
-            // (3) الرقم المزخرف يكون نهاية الآية وليس بدايتها
+            // (3) الرقم المزخرف يكون نهاية الآية
             val ornate = formatOrnateAyahNumber(displayNumber)
             val finalText = "$cleanText  $ornate"
 
-            // تلوين: الزخارف الخضراء + الرقم الأحمر
+            // تلوين: الزخارف الخضراء + لفظ الجلالة أخضر + الرقم الأحمر
             b.tvAyah.text = colorDecorationsAndRedNumber(finalText, ornate)
         }
 
         private fun findSurahName(surahIndex: Int): String {
-            val title = items.firstOrNull { it is QItem.SurahTitle && it.surahIndex == surahIndex } as? QItem.SurahTitle
+            val title = items.firstOrNull {
+                it is QItem.SurahTitle && it.surahIndex == surahIndex
+            } as? QItem.SurahTitle
             return title?.name ?: ""
         }
 
         private fun isDuaKhatmQuranSurah(name: String): Boolean {
-            // أي اسم يحتوي "دعاء ختم" يكفي
             return name.contains("دعاء ختم")
                 || name.contains("ختم القران")
                 || name.contains("ختم القرآن")
         }
 
         private fun hasBasmalaAsFirstAyah(surahIndex: Int): Boolean {
-            // نبحث عن أول آية لنفس السورة
-            val firstAyah = items.firstOrNull { it is QItem.Ayah && it.surahIndex == surahIndex && it.ayahIndex == 0 } as? QItem.Ayah
-            if (firstAyah == null) return false
+            val firstAyah = items.firstOrNull {
+                it is QItem.Ayah && it.surahIndex == surahIndex && it.ayahIndex == 0
+            } as? QItem.Ayah ?: return false
+
             val txt = removeTrailingParenthesesNumber(firstAyah.text)
             return containsBasmala(txt)
         }
@@ -128,40 +129,74 @@ class QuranAdapter(
         }
 
         private fun removeTrailingParenthesesNumber(text: String): String {
-            // يحذف أي (1) أو ( ١ ) في آخر السطر فقط (حتى لا تظهر الأقواس العادية نهائيًا)
             val trimmed = text.trim()
             val regex = Regex("""\s*\(\s*[\d٠١٢٣٤٥٦٧٨٩]+\s*\)\s*$""")
             return trimmed.replace(regex, "").trim()
         }
 
         private fun formatOrnateAyahNumber(n: Int): String {
-            // ⟵ نفس أسلوب رقمك المزخرف: (رمز يمين) رقم عربي (رمز يسار)
             val arabic = n.toString()
                 .replace("0", "٠").replace("1", "١").replace("2", "٢").replace("3", "٣")
                 .replace("4", "٤").replace("5", "٥").replace("6", "٦").replace("7", "٧")
                 .replace("8", "٨").replace("9", "٩")
 
-            // الزخرفة: ﴿٦﴾ كانت عندك… أنت طلبت المزخرف الحالي الأحمر، نتركه كما هو عندك
-            // إذا تريد بالضبط ﴿٦﴾ أخبرني ونعملها بدل الرموز الحالية.
             return "﴿$arabic﴾"
         }
 
+        /**
+         * يلوّن:
+         * 1) الزخارف ❁ ✿ ❀ باللون الأخضر
+         * 2) كل ظهور لِلفظ الجلالة (الله / ٱللَّه / للّه ... مع التشكيل) باللون الأخضر
+         */
         private fun colorDecorations(text: String): SpannableString {
             val ss = SpannableString(text)
             val green = ContextCompat.getColor(b.root.context, android.R.color.holo_green_dark)
 
             // الزخارف المطلوبة: ❁ ✿ ❀  (فقط هذه)
-            val symbols = listOf('❁', '✿', '❀')
+            val symbols = setOf('❁', '✿', '❀')
             for (i in text.indices) {
                 if (symbols.contains(text[i])) {
-                    ss.setSpan(ForegroundColorSpan(green), i, i + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    ss.setSpan(
+                        ForegroundColorSpan(green),
+                        i,
+                        i + 1,
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
                 }
+            }
+
+            // ✅ تلوين لفظ الجلالة أينما ظهر (مع/بدون تشكيل)
+            return applyAllahGreen(ss, green)
+        }
+
+        private fun applyAllahGreen(ss: SpannableString, green: Int): SpannableString {
+            val text = ss.toString()
+
+            // نطاق الحركات والتشكيل (فتحة/ضمة/كسرة... + سكون + شدة + ألف خنجرية)
+            val harakat = "\\u064B-\\u0652\\u0670"
+
+            /*
+             يلتقط:
+             - الله / ٱللَّه / اَللّٰه ... (ا أو ٱ) ثم ل ثم ل ثم ه وبينها تشكيل اختياري
+             - للّه (لام لام هاء) مع تشكيل اختياري
+            */
+            val pattern = Regex(
+                """([ٱا][${harakat}]*ل[${harakat}]*ل[${harakat}]*ه[${harakat}]*)|(ل[${harakat}]*ل[${harakat}]*ه[${harakat}]*)"""
+            )
+
+            for (m in pattern.findAll(text)) {
+                ss.setSpan(
+                    ForegroundColorSpan(green),
+                    m.range.first,
+                    m.range.last + 1,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
             }
             return ss
         }
 
         private fun colorDecorationsAndRedNumber(full: String, numberPart: String): SpannableString {
-            val ss = colorDecorations(full)
+            val ss = colorDecorations(full) // <- الآن تلوّن الزخارف + لفظ الجلالة
             val red = ContextCompat.getColor(b.root.context, android.R.color.holo_red_dark)
 
             val start = full.lastIndexOf(numberPart)
@@ -177,3 +212,4 @@ class QuranAdapter(
         }
     }
 }
+```0
