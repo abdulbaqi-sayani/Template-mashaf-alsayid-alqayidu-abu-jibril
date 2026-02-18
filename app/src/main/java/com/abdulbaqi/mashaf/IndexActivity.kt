@@ -5,10 +5,13 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.abdulbaqi.mashaf.databinding.ActivityIndexBinding
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
-import org.json.JSONException
 
 class IndexActivity : AppCompatActivity() {
 
@@ -19,62 +22,78 @@ class IndexActivity : AppCompatActivity() {
         b = ActivityIndexBinding.inflate(layoutInflater)
         setContentView(b.root)
 
-        // لا تجعل الشاشة فاضية بدون سبب
+        // تجهيز RecyclerView من البداية
         b.rvIndex.layoutManager = LinearLayoutManager(this)
         b.rvIndex.setHasFixedSize(true)
 
-        try {
-            val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
-            val surahs = JSONArray(jsonText)
-
-            val names = ArrayList<String>(surahs.length())
-            for (i in 0 until surahs.length()) {
-                val obj = surahs.getJSONObject(i)
-                val name = obj.optString("name", "").trim()
-                if (name.isNotEmpty()) names.add(name) else names.add("سورة بدون اسم")
+        // زر متابعة القراءة
+        b.btnContinue.setOnClickListener {
+            if (!BookmarkStore.hasBookmark(this)) {
+                Toast.makeText(this, "لا توجد إشارة مرجعية", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
             }
+            val s = BookmarkStore.getSurahIndex(this)
+            startActivity(
+                Intent(this, MainActivity::class.java)
+                    .putExtra("surahIndex", s)
+                    .putExtra("fromIndex", false)
+            )
+        }
 
-            val bookmarkedSurah = if (BookmarkStore.hasBookmark(this)) {
-                BookmarkStore.getSurahIndex(this)
-            } else -1
+        // تحميل الفهرس في الخلفية لتجنب تعليق الشاشة
+        loadIndex()
+    }
 
-            b.rvIndex.adapter = SurahAdapter(
-                names = names,
-                bookmarkedIndex = bookmarkedSurah
-            ) { index ->
-                startActivity(
-                    Intent(this, MainActivity::class.java)
-                        .putExtra("surahIndex", index)
-                        .putExtra("fromIndex", true)
-                )
-            }
+    private fun loadIndex() {
+        showLoading(true)
 
-            b.btnContinue.visibility = View.VISIBLE
-            b.btnContinue.setOnClickListener {
-                if (!BookmarkStore.hasBookmark(this)) {
-                    Toast.makeText(this, "لا توجد إشارة مرجعية", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
+        lifecycleScope.launch {
+            try {
+                val names = withContext(Dispatchers.IO) {
+                    val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
+                    val surahs = JSONArray(jsonText)
+
+                    val list = ArrayList<String>(surahs.length())
+                    for (i in 0 until surahs.length()) {
+                        // name لازم تكون String دائماً
+                        val name = surahs.getJSONObject(i).optString("name", "")
+                        list.add(name)
+                    }
+                    list
                 }
-                val s = BookmarkStore.getSurahIndex(this)
-                startActivity(
-                    Intent(this, MainActivity::class.java)
-                        .putExtra("surahIndex", s)
-                        .putExtra("fromIndex", false)
-                )
-            }
 
-        } catch (e: JSONException) {
-            // غالبًا مشكلة JSON (أقواس/فواصل/ترتيب)
-            showFatalError("خطأ في quran.json: ${e.message}")
-        } catch (e: Exception) {
-            // أي سبب آخر (ملف غير موجود، خطأ قراءة..)
-            showFatalError("تعذر تشغيل التطبيق: ${e.message}")
+                val bookmarkedSurah = if (BookmarkStore.hasBookmark(this@IndexActivity)) {
+                    BookmarkStore.getSurahIndex(this@IndexActivity)
+                } else -1
+
+                b.rvIndex.adapter = SurahAdapter(
+                    names = names,
+                    bookmarkedIndex = bookmarkedSurah
+                ) { index ->
+                    // فتح السورة عند الضغط من الفهرس
+                    startActivity(
+                        Intent(this@IndexActivity, MainActivity::class.java)
+                            .putExtra("surahIndex", index)
+                            .putExtra("fromIndex", true)
+                    )
+                }
+
+                showLoading(false)
+
+            } catch (e: Exception) {
+                showLoading(false)
+                // رسالة واضحة بدل الصمت
+                Toast.makeText(
+                    this@IndexActivity,
+                    "خطأ في quran.json: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         }
     }
 
-    private fun showFatalError(msg: String) {
-        Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
-        // لا ننهار — نخلي الشاشة موجودة
-        b.btnContinue.visibility = View.VISIBLE
+    private fun showLoading(isLoading: Boolean) {
+        b.progress.visibility = if (isLoading) View.VISIBLE else View.GONE
+        b.rvIndex.visibility = if (isLoading) View.GONE else View.VISIBLE
     }
 }
