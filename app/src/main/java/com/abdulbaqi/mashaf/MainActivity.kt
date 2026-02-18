@@ -2,7 +2,6 @@ package com.abdulbaqi.mashaf
 
 import android.content.pm.ActivityInfo
 import android.os.Bundle
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
@@ -24,84 +23,61 @@ class MainActivity : AppCompatActivity() {
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
 
-        try {
-            val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
-            val surahs = JSONArray(jsonText)
+        val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
+        val surahs = JSONArray(jsonText)
 
-            // لكل سورة: هل عندها بسملة في أول عنصر؟ (حتى نبدأ الترقيم من بعد البسملة)
-            val basmalaOffset = IntArray(surahs.length()) { 0 }
+        items = ArrayList(12000)
 
-            items = ArrayList(12000)
+        for (s in 0 until surahs.length()) {
+            val surahObj = surahs.getJSONObject(s)
+            val name = surahObj.getString("name")
+            items.add(QItem.SurahTitle(name = name, surahIndex = s))
 
-            for (s in 0 until surahs.length()) {
-                val surahObj = surahs.getJSONObject(s)
-                val name = surahObj.getString("name")
+            val ayahsArray = surahObj.getJSONArray("ayahs")
+            for (a in 0 until ayahsArray.length()) {
+                val raw = ayahsArray.getString(a)
+                val text = raw
+                    .replace("\r", " ")
+                    .replace("\n", " ")
+                    .replace(Regex("\\s+"), " ")
+                    .trim()
 
-                // عنوان السورة (مرة واحدة)
-                items.add(QItem.SurahTitle(name = name, surahIndex = s))
-
-                val ayahsArray = surahObj.getJSONArray("ayahs")
-
-                // تحديد وجود بسملة في أول عنصر (عدا الفاتحة)
-                if (ayahsArray.length() > 0) {
-                    val first = ayahsArray.optString(0, "").trim()
-                    val isBasmalaFirst = first.contains("بسم الله") || first.contains("ٮِسۡمِ") || first.contains("بِسۡمِ")
-                    basmalaOffset[s] = if (s != 0 && isBasmalaFirst) 1 else 0
-                }
-
-                for (a in 0 until ayahsArray.length()) {
-                    val raw = ayahsArray.optString(a, "")
-                    val text = raw
-                        .replace("\r", " ")
-                        .replace("\n", " ")
-                        .replace(Regex("\\s+"), " ")
-                        .trim()
-
-                    items.add(QItem.Ayah(text = text, surahIndex = s, ayahIndex = a))
-                }
+                // ✅ لا basmalaOffset هنا إطلاقًا
+                items.add(QItem.Ayah(text = text, surahIndex = s, ayahIndex = a))
             }
+        }
 
-            val amiri = ResourcesCompat.getFont(this, R.font.amiri_quran)
+        val amiri = ResourcesCompat.getFont(this, R.font.amiri_quran)
 
-            lm = LinearLayoutManager(this)
-            b.rvAyah.layoutManager = lm
-            b.rvAyah.adapter = QuranAdapter(
-                items = items,
-                amiri = amiri,
-                basmalaOffset = basmalaOffset
-            )
+        lm = LinearLayoutManager(this)
+        b.rvAyah.layoutManager = lm
+        b.rvAyah.adapter = QuranAdapter(items, amiri)
 
-            // Divider مخصص
-            val divider = DividerItemDecoration(this, lm.orientation)
-            ContextCompat.getDrawable(this, R.drawable.divider_ayah)?.let { divider.setDrawable(it) }
-            b.rvAyah.addItemDecoration(divider)
+        val divider = DividerItemDecoration(this, lm.orientation)
+        ContextCompat.getDrawable(this, R.drawable.divider_ayah)?.let { divider.setDrawable(it) }
+        b.rvAyah.addItemDecoration(divider)
 
-            // فتح من الفهرس: بالاسم (حتى لو حذفت التكرارات وتغير ترتيب السور)
-            val fromIndex = intent.getBooleanExtra("fromIndex", false)
-            val wantedName = intent.getStringExtra("surahName")
+        // فتح من الفهرس
+        val fromIndex = intent.getBooleanExtra("fromIndex", false)
+        val wantedName = intent.getStringExtra("surahName")
 
-            if (fromIndex && !wantedName.isNullOrBlank()) {
-                val pos = items.indexOfFirst { it is QItem.SurahTitle && it.name == wantedName }
-                if (pos >= 0) b.rvAyah.post { lm.scrollToPositionWithOffset(pos, 0) }
-            } else {
-                // متابعة القراءة من الإشارة المرجعية
-                if (BookmarkStore.hasBookmark(this)) {
-                    val s = BookmarkStore.getSurahIndex(this)
-                    val a = BookmarkStore.getAyahIndex(this)
-                    val pos = items.indexOfFirst { it is QItem.Ayah && it.surahIndex == s && it.ayahIndex == a }
-                    if (pos >= 0) b.rvAyah.post { lm.scrollToPositionWithOffset(pos, 0) }
-                }
-            }
+        if (fromIndex && !wantedName.isNullOrBlank()) {
+            val pos = items.indexOfFirst { it is QItem.SurahTitle && it.name == wantedName }
+            if (pos >= 0) b.rvAyah.post { lm.scrollToPositionWithOffset(pos, 0) }
+            return
+        }
 
-        } catch (e: Exception) {
-            Toast.makeText(this, "خطأ في quran.json: ${e.message}", Toast.LENGTH_LONG).show()
-            finish()
+        // متابعة القراءة
+        if (BookmarkStore.hasBookmark(this)) {
+            val s = BookmarkStore.getSurahIndex(this)
+            val a = BookmarkStore.getAyahIndex(this)
+            val pos = items.indexOfFirst { it is QItem.Ayah && it.surahIndex == s && it.ayahIndex == a }
+            if (pos >= 0) b.rvAyah.post { lm.scrollToPositionWithOffset(pos, 0) }
         }
     }
 
     override fun onPause() {
         super.onPause()
-
         val adapter = b.rvAyah.adapter as? QuranAdapter ?: return
         val pos = lm.findFirstVisibleItemPosition()
         if (pos < 0) return
