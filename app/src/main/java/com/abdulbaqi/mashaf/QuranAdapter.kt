@@ -1,11 +1,11 @@
 package com.abdulbaqi.mashaf
 
 import android.graphics.Typeface
+import android.text.Spannable
+import android.text.SpannableStringBuilder
+import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
-import androidx.core.text.buildSpannedString
-import androidx.core.text.color
 import androidx.recyclerview.widget.RecyclerView
 import com.abdulbaqi.mashaf.databinding.ItemAyahBinding
 import com.abdulbaqi.mashaf.databinding.ItemSurahTitleBinding
@@ -20,7 +20,7 @@ class QuranAdapter(
         private const val TYPE_AYAH = 1
     }
 
-    // ✅ هل نحن داخل “قسم دعاء”؟ (مثل: دعاء ختم القرآن)
+    // ✅ علشان “قسم الدعاء” مثل دعاء ختم القرآن
     private val noNumberForAyah = BooleanArray(items.size)
 
     init {
@@ -28,14 +28,10 @@ class QuranAdapter(
         for (i in items.indices) {
             when (val it = items[i]) {
                 is QItem.SurahTitle -> {
-                    // أي عنوان فيه “دعاء” اعتبره قسم دعاء
                     inDuaSection = it.name.contains("دعاء", ignoreCase = true)
                 }
                 is QItem.Ayah -> {
-                    // داخل قسم الدعاء => لا رقم
                     if (inDuaSection) noNumberForAyah[i] = true
-
-                    // لو كان هذا السطر نفسه “دعاء ختم...” => لا رقم
                     if (isDuaHeader(it.text)) noNumberForAyah[i] = true
                 }
             }
@@ -54,11 +50,9 @@ class QuranAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         return if (viewType == TYPE_TITLE) {
-            val b = ItemSurahTitleBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-            TitleVH(b)
+            TitleVH(ItemSurahTitleBinding.inflate(LayoutInflater.from(parent.context), parent, false))
         } else {
-            val b = ItemAyahBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-            AyahVH(b)
+            AyahVH(ItemAyahBinding.inflate(LayoutInflater.from(parent.context), parent, false))
         }
     }
 
@@ -76,27 +70,38 @@ class QuranAdapter(
                 val ctx = h.itemView.context
 
                 h.b.tvAyah.typeface = amiri
-                h.b.tvAyah.text = item.text
 
-                // ✅ قرّر هل نعرض رقم أم لا
                 val showNumber = shouldShowNumber(
                     position = position,
                     surahIndex = item.surahIndex,
                     text = item.text
                 )
 
-                if (!showNumber) {
-                    h.b.tvNumber.visibility = View.GONE
-                } else {
-                    h.b.tvNumber.visibility = View.VISIBLE
+                val red = ctx.getColor(android.R.color.holo_red_dark)
+                val green = ctx.getColor(android.R.color.holo_green_dark)
 
-                    // رقم الآية داخل ﴿ ﴾ وبالأرقام العربية + باللون الأحمر
-                    val red = ctx.getColor(android.R.color.holo_red_dark)
-                    val numberText = buildSpannedString {
-                        color(red) { append("﴿${toArabicDigits(item.ayahIndex + 1)}﴾") }
-                    }
-                    h.b.tvNumber.text = numberText
+                val sb = SpannableStringBuilder()
+
+                if (showNumber) {
+                    val num = "﴿${toArabicDigits(item.ayahIndex + 1)}﴾"
+                    val start = sb.length
+                    sb.append(num).append("  ")
+                    sb.setSpan(
+                        ForegroundColorSpan(red),
+                        start,
+                        start + num.length,
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
                 }
+
+                val textStart = sb.length
+                sb.append(item.text)
+
+                // ✅ لوّن الزخارف ❁ ❀ ✿ باللون الأخضر داخل النص
+                colorDecorations(sb, textStart, sb.length, green)
+
+                // ✅ (اختياري) لو عندك رموز ﴿﴾ داخل النص نفسه وتريدها خضراء/لا شيء، اتركها كما هي.
+                h.b.tvAyah.text = sb
             }
         }
     }
@@ -105,38 +110,51 @@ class QuranAdapter(
 
     fun getItemAt(position: Int): QItem = items[position]
 
-    // ---------------- Helpers ----------------
+    // ---------------- Rules ----------------
 
     private fun shouldShowNumber(position: Int, surahIndex: Int, text: String): Boolean {
-        // 1) داخل قسم دعاء => لا رقم
         if (noNumberForAyah[position]) return false
-
-        // 2) اللهم صل على محمد وآل محمد => لا رقم
         if (isSalawat(text)) return false
 
-        // 3) بسم الله => لا رقم في كل السور إلا الفاتحة (surahIndex = 0)
+        // ✅ بسم الله: بدون رقم في كل السور إلا الفاتحة (surahIndex = 0)
         if (isBasmalah(text) && surahIndex != 0) return false
 
-        // غير ذلك => رقم طبيعي
         return true
     }
 
     private fun isBasmalah(t: String): Boolean {
-        val s = t.replace("ٮ", "ب") // أحيانًا عندك (ٮسم) بدل (بسم)
+        val s = t.replace("ٮ", "ب")
         return s.contains("بسم الله", ignoreCase = true) ||
-                s.contains("بِسۡمِ ٱللَّهِ", ignoreCase = true)
+            s.contains("بِسۡمِ ٱللَّهِ", ignoreCase = true)
     }
 
     private fun isSalawat(t: String): Boolean {
         val s = t.replace("ٮ", "ب")
         return s.contains("اللهم صل", ignoreCase = true) ||
-                s.contains("اللَّهُمَّ صَلِّ", ignoreCase = true)
+            s.contains("اللَّهُمَّ صَلِّ", ignoreCase = true)
     }
 
     private fun isDuaHeader(t: String): Boolean {
         val s = t.replace("حتم", "ختم")
         return s.contains("دعاء ختم", ignoreCase = true) ||
-                s.contains("دعاء", ignoreCase = true) && s.contains("القرآن", ignoreCase = true)
+            (s.contains("دعاء", ignoreCase = true) && s.contains("القرآن", ignoreCase = true))
+    }
+
+    // ---------------- Styling helpers ----------------
+
+    private fun colorDecorations(sb: SpannableStringBuilder, from: Int, to: Int, color: Int) {
+        val targets = charArrayOf('❁', '❀', '✿')
+        for (i in from until to) {
+            val c = sb[i]
+            if (targets.contains(c)) {
+                sb.setSpan(
+                    ForegroundColorSpan(color),
+                    i,
+                    i + 1,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+        }
     }
 
     private fun toArabicDigits(input: Int): String {
