@@ -60,29 +60,30 @@ class QuranAdapter(
             b.tvAyah.typeface = amiri
 
             val surahName = findSurahName(item.surahIndex)
-
             val rawText = item.text
             val cleanText = removeTrailingParenthesesNumber(rawText)
 
             // 1) دعاء ختم القرآن: بدون أرقام إطلاقًا
             if (isDuaKhatmQuranSurah(surahName) || containsDuaKhatmKeyword(cleanText)) {
-                b.tvAyah.text = colorDecorationsAndAllah(cleanText)
+                b.tvAyah.text = colorDecorations(cleanText)
                 return
             }
 
             // 2) "اللهم صل على محمد وآل محمد": بدون رقم إطلاقًا
             if (isSalawatLine(cleanText)) {
-                b.tvAyah.text = colorDecorationsAndAllah(cleanText)
+                b.tvAyah.text = colorDecorations(cleanText)
                 return
             }
 
             // 3) البسملة: بدون رقم في كل السور إلا الفاتحة
-            if (isBasmalaLine(cleanText) && item.surahIndex != 0) {
-                b.tvAyah.text = colorDecorationsAndAllah(cleanText)
+            //    (نكتشفها من النص نفسه حتى لو كانت ليست أول عنصر عندك)
+            val isBasmala = isBasmalaLine(cleanText)
+            if (isBasmala && item.surahIndex != 0) { // كل السور ما عدا الفاتحة
+                b.tvAyah.text = colorDecorations(cleanText)
                 return
             }
 
-            // رقم العرض
+            // رقم العرض (الترقيم الداخلي عندك يعتمد على ترتيب الملف)
             val displayNumber = item.ayahIndex + 1
 
             // الرقم المزخرف آخر الآية
@@ -90,7 +91,7 @@ class QuranAdapter(
             val finalText = "$cleanText  $ornate"
 
             // تلوين: زخارف خضراء + لفظ الجلالة أخضر + الرقم أحمر
-            b.tvAyah.text = colorDecorationsAllahAndRedNumber(finalText, ornate)
+            b.tvAyah.text = colorDecorationsAndRedNumber(finalText, ornate)
         }
 
         private fun findSurahName(surahIndex: Int): String {
@@ -103,7 +104,7 @@ class QuranAdapter(
         private fun removeTrailingParenthesesNumber(text: String): String {
             // يحذف أي (1) أو ( ١ ) في آخر السطر فقط
             val trimmed = text.trim()
-            val regex = Regex("""\s*\s*[\d٠١٢٣٤٥٦٧٨٩]+\s*\s*$""")
+            val regex = Regex("""\s*\(\s*[\d٠١٢٣٤٥٦٧٨٩]+\s*\)\s*$""")
             return trimmed.replace(regex, "").trim()
         }
 
@@ -112,14 +113,17 @@ class QuranAdapter(
                 .replace("0", "٠").replace("1", "١").replace("2", "٢").replace("3", "٣")
                 .replace("4", "٤").replace("5", "٥").replace("6", "٦").replace("7", "٧")
                 .replace("8", "٨").replace("9", "٩")
+
+            // الشكل الذي طلبته
             return "﴿$arabic﴾"
         }
 
-        // ------------------ التعرف (بدون حساسيات تشكيل) ------------------
+        // --------------------- قواعد التعرف ---------------------
 
         private fun normalizeForMatch(s: String): String {
+            // تبسيط للمقارنة: إزالة تشكيل/رموز، وتوحيد الألف والهمزات، وإزالة الزخارف
             return s
-                .replace(Regex("[\\u064B-\\u0652\\u0670]"), "") // حركات + ألف خنجرية
+                .replace(Regex("[\\u064B-\\u0652\\u0670]"), "") // حركات
                 .replace("ٱ", "ا")
                 .replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")
                 .replace("ة", "ه")
@@ -133,11 +137,13 @@ class QuranAdapter(
 
         private fun isBasmalaLine(text: String): Boolean {
             val t = normalizeForMatch(text)
-            return t.contains("بسم الله الرحمن الرحيم")
+            val basmala = "بسم الله الرحمن الرحيم"
+            return t.contains(basmala)
         }
 
         private fun isSalawatLine(text: String): Boolean {
             val t = normalizeForMatch(text)
+            // نقبل: اللهم صل على محمد وآل محمد (مع اختلافات بسيطة)
             return t.contains("اللهم صل على محمد") && (t.contains("وال محمد") || t.contains("وآل محمد"))
         }
 
@@ -151,13 +157,13 @@ class QuranAdapter(
             return t.contains("دعاء ختم") || t.contains("ختم القران") || t.contains("ختم القرآن")
         }
 
-        // ------------------ التلوين ------------------
+        // --------------------- التلوين ---------------------
 
-        private fun colorDecorationsAndAllah(text: String): SpannableString {
+        private fun colorDecorations(text: String): SpannableString {
             val ss = SpannableString(text)
             val green = ContextCompat.getColor(b.root.context, android.R.color.holo_green_dark)
 
-            // تلوين الزخارف فقط: ❁ ✿ ❀
+            // الزخارف المطلوبة: ❁ ✿ ❀ فقط
             val symbols = setOf('❁', '✿', '❀')
             for (i in text.indices) {
                 if (symbols.contains(text[i])) {
@@ -170,24 +176,19 @@ class QuranAdapter(
                 }
             }
 
-            // تلوين لفظ الجلالة (الله / لله) مع احتمال وجود تشكيل
+            // تلوين لفظ الجلالة
             return applyAllahGreen(ss, green)
         }
 
         private fun applyAllahGreen(ss: SpannableString, green: Int): SpannableString {
-            val t = ss.toString()
+            val text = ss.toString()
+            val harakat = "\\u064B-\\u0652\\u0670"
 
-            // نطاق الحركات العربيّة + ألف خنجرية
-            val harakatRange = "\\u064B-\\u0652\\u0670"
-
-            // الله: ا + ل + ل + ه (مع تشكيل محتمل)
-            // لله: ل + ل + ه (مع تشكيل محتمل)
             val pattern = Regex(
-                "([ٱا][${harakatRange}]*ل[${harakatRange}]*ل[${harakatRange}]*ه[${harakatRange}]*)" +
-                        "|(ل[${harakatRange}]*ل[${harakatRange}]*ه[${harakatRange}]*)"
+                """([ٱا][${harakat}]*ل[${harakat}]*ل[${harakat}]*ه[${harakat}]*)|(ل[${harakat}]*ل[${harakat}]*ه[${harakat}]*)"""
             )
 
-            for (m in pattern.findAll(t)) {
+            for (m in pattern.findAll(text)) {
                 ss.setSpan(
                     ForegroundColorSpan(green),
                     m.range.first,
@@ -198,8 +199,8 @@ class QuranAdapter(
             return ss
         }
 
-        private fun colorDecorationsAllahAndRedNumber(full: String, numberPart: String): SpannableString {
-            val ss = colorDecorationsAndAllah(full)
+        private fun colorDecorationsAndRedNumber(full: String, numberPart: String): SpannableString {
+            val ss = colorDecorations(full)
             val red = ContextCompat.getColor(b.root.context, android.R.color.holo_red_dark)
 
             val start = full.lastIndexOf(numberPart)
