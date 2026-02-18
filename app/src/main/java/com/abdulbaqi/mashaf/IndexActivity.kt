@@ -13,9 +13,11 @@ class IndexActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         b = ActivityIndexBinding.inflate(layoutInflater)
         setContentView(b.root)
 
+        // قراءة quran.json واستخراج أسماء السور
         val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
         val surahs = JSONArray(jsonText)
 
@@ -24,33 +26,33 @@ class IndexActivity : AppCompatActivity() {
             names.add(surahs.getJSONObject(i).getString("name"))
         }
 
-        // ✅ اجلب اسم السورة المحفوظة (بدل index) حتى لا يتأثر بالحذف/الترتيب
-        val bookmarkedName: String? = if (BookmarkStore.hasBookmark(this)) {
-            val bookmarkedIndex = BookmarkStore.getSurahIndex(this)
-            if (bookmarkedIndex in 0 until names.size) names[bookmarkedIndex] else null
-        } else null
+        // السورة المحفوظة (للنجمة)
+        val bookmarkedSurahIndex = if (BookmarkStore.hasBookmark(this)) {
+            BookmarkStore.getSurahIndex(this)
+        } else -1
 
-        val bookmarkedPos = if (bookmarkedName != null) names.indexOf(bookmarkedName) else -1
-
+        // عرض الفهرس
         b.rvIndex.layoutManager = LinearLayoutManager(this)
         b.rvIndex.adapter = SurahAdapter(
             names = names,
-            bookmarkedIndex = bookmarkedPos
-        ) { position ->
-            val surahName = names[position]
+            bookmarkedIndex = bookmarkedSurahIndex
+        ) { index ->
+            // ✅ فتح السورة بالاسم (أكثر أمانًا لو تغيرت الفهارس داخل JSON)
             startActivity(
                 Intent(this, MainActivity::class.java)
                     .putExtra("fromIndex", true)
-                    .putExtra("surahName", surahName) // ✅ بالاسم بدل الرقم
+                    .putExtra("surahName", names[index])
             )
         }
 
-        // ✅ متابعة القراءة من الإشارة المرجعية (نتركها كما هي: ستفتح على الإشارة)
+        // متابعة القراءة من الإشارة المرجعية
         b.btnContinue.setOnClickListener {
             if (!BookmarkStore.hasBookmark(this)) return@setOnClickListener
+
+            // نفتح MainActivity بدون fromIndex حتى يذهب للإشارة المرجعية
             startActivity(
                 Intent(this, MainActivity::class.java)
-                    .putExtra("fromIndex", false) // افتح على الإشارة
+                    .putExtra("fromIndex", false)
             )
         }
     }
