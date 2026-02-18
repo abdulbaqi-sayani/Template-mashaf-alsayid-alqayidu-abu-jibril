@@ -2,19 +2,20 @@ package com.abdulbaqi.mashaf
 
 import android.content.pm.ActivityInfo
 import android.os.Bundle
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.abdulbaqi.mashaf.databinding.ActivityMainBinding
-import org.json.JSONArray
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var b: ActivityMainBinding
     private lateinit var lm: LinearLayoutManager
-    private lateinit var items: ArrayList<QItem>
+    private var items: ArrayList<QItem> = arrayListOf()
+    private var adapter: QuranAdapter? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -23,45 +24,36 @@ class MainActivity : AppCompatActivity() {
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
 
-        // 1) قراءة quran.json
-        val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
-        val surahs = JSONArray(jsonText)
-
-        // 2) قائمة واحدة: (عنوان سورة + آيات)
-        items = ArrayList(10000)
-
-        for (s in 0 until surahs.length()) {
-            val surahObj = surahs.getJSONObject(s)
-            val name = surahObj.getString("name")
-
-            // عنوان السورة يظهر مرة واحدة فقط
-            items.add(QItem.SurahTitle(name = name, surahIndex = s))
-
-            val ayahsArray = surahObj.getJSONArray("ayahs")
-            for (a in 0 until ayahsArray.length()) {
-                val raw = ayahsArray.getString(a)
-                val text = raw
-                    .replace("\r", " ")
-                    .replace("\n", " ")
-                    .replace(Regex("\\s+"), " ")
-                    .trim()
-
-                items.add(QItem.Ayah(text = text, surahIndex = s, ayahIndex = a))
-            }
-        }
-
         val amiri = ResourcesCompat.getFont(this, R.font.amiri_quran)
 
         lm = LinearLayoutManager(this)
         b.rvAyah.layoutManager = lm
-        b.rvAyah.adapter = QuranAdapter(items, amiri)
 
-        // Divider مخصص
+        // Divider
         val divider = DividerItemDecoration(this, lm.orientation)
         ContextCompat.getDrawable(this, R.drawable.divider_ayah)?.let { divider.setDrawable(it) }
         b.rvAyah.addItemDecoration(divider)
 
-        // 3) فتح من الفهرس (بالاسم) حتى لو تغيّر ترتيب/حذفت التكرار في JSON
+        // ✅ تحميل المصحف في Thread + حماية من الكراش
+        QuranRepo.loadItemsAsync(
+            context = this,
+            onSuccess = { loaded ->
+                runOnUiThread {
+                    items = loaded
+                    adapter = QuranAdapter(items, amiri)
+                    b.rvAyah.adapter = adapter
+                    handleIntentScroll()
+                }
+            },
+            onError = { msg ->
+                runOnUiThread {
+                    Toast.makeText(this, "خطأ في quran.json: $msg", Toast.LENGTH_LONG).show()
+                }
+            }
+        )
+    }
+
+    private fun handleIntentScroll() {
         val fromIndex = intent.getBooleanExtra("fromIndex", false)
         val wantedName = intent.getStringExtra("surahName")
 
@@ -71,7 +63,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // 4) متابعة القراءة من الإشارة المرجعية
+        // ✅ متابعة القراءة من الإشارة المرجعية
         if (BookmarkStore.hasBookmark(this)) {
             val s = BookmarkStore.getSurahIndex(this)
             val a = BookmarkStore.getAyahIndex(this)
@@ -83,11 +75,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        val adapter = b.rvAyah.adapter as? QuranAdapter ?: return
+        val ad = adapter ?: return
         val pos = lm.findFirstVisibleItemPosition()
         if (pos < 0) return
 
-        val item = adapter.getItemAt(pos)
+        val item = ad.getItemAt(pos)
         if (item is QItem.Ayah) {
             BookmarkStore.save(this, item.surahIndex, item.ayahIndex)
         }
