@@ -2,7 +2,6 @@ package com.abdulbaqi.mashaf
 
 import android.content.Intent
 import android.os.Bundle
-import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -18,12 +17,8 @@ class IndexActivity : AppCompatActivity() {
         b = ActivityIndexBinding.inflate(layoutInflater)
         setContentView(b.root)
 
-        // تجهيز RecyclerView مباشرة (حتى لا ينهار لو تأخر التحميل)
+        // تجهيز RecyclerView مباشرة
         b.rvIndex.layoutManager = LinearLayoutManager(this)
-        b.rvIndex.adapter = SurahAdapter(
-            names = emptyList(),
-            bookmarkedIndex = -1
-        ) { }
 
         // زر متابعة القراءة
         b.btnContinue.setOnClickListener {
@@ -36,18 +31,17 @@ class IndexActivity : AppCompatActivity() {
             )
         }
 
-        // ✅ تحميل البيانات بالخلفية لتجنب تجميد الشاشة
+        // نضع Adapter مبدئي (فارغ) لكن القائمة تظل ظاهرة (لا نخفيها)
+        b.rvIndex.adapter = SurahAdapter(
+            names = emptyList(),
+            bookmarkedIndex = if (BookmarkStore.hasBookmark(this)) BookmarkStore.getSurahIndex(this) else -1
+        ) { /* لا شيء */ }
+
+        // تحميل الفهرس بالخلفية
         loadIndexInBackground()
     }
 
     private fun loadIndexInBackground() {
-        // (اختياري) لو عندك ProgressBar اسمه progress:
-        // b.progress.visibility = View.VISIBLE
-
-        // اجعل الزر والضغط معطّل أثناء التحميل
-        b.btnContinue.isEnabled = false
-        b.rvIndex.visibility = View.INVISIBLE
-
         Thread {
             try {
                 val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
@@ -56,7 +50,7 @@ class IndexActivity : AppCompatActivity() {
                 val names = ArrayList<String>(surahs.length())
                 for (i in 0 until surahs.length()) {
                     val name = surahs.getJSONObject(i).optString("name", "").trim()
-                    if (name.isNotEmpty()) names.add(name)
+                    names.add(name)
                 }
 
                 val bookmarkedSurah = if (BookmarkStore.hasBookmark(this)) {
@@ -64,10 +58,6 @@ class IndexActivity : AppCompatActivity() {
                 } else -1
 
                 runOnUiThread {
-                    b.btnContinue.isEnabled = true
-                    b.rvIndex.visibility = View.VISIBLE
-                    // b.progress.visibility = View.GONE
-
                     b.rvIndex.adapter = SurahAdapter(
                         names = names,
                         bookmarkedIndex = bookmarkedSurah
@@ -81,9 +71,11 @@ class IndexActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    b.btnContinue.isEnabled = true
-                    // b.progress.visibility = View.GONE
-                    Toast.makeText(this, "خطأ في قراءة quran.json: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                        this,
+                        "تعذر تحميل الفهرس (quran.json): ${e.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         }.start()
