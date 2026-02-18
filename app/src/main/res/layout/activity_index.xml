@@ -10,8 +10,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
-        android:text="متابعة القراءة"
-        android:padding="14dp" />
+        android:padding="14dp"
+        android:text="متابعة القراءة" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvIndex"
@@ -20,11 +20,4 @@
         android:layout_weight="1"
         android:padding="8dp" />
 
-</LinearLayout>        android:layout_height="wrap_content"
-        android:visibility="gone"
-        app:layout_constraintTop_toTopOf="@id/rvIndex"
-        app:layout_constraintBottom_toBottomOf="@id/rvIndex"
-        app:layout_constraintStart_toStartOf="@id/rvIndex"
-        app:layout_constraintEnd_toEndOf="@id/rvIndex"/>
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+</LinearLayout>
