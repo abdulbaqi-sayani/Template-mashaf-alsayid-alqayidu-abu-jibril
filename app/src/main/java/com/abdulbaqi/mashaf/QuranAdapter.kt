@@ -1,6 +1,10 @@
 package com.abdulbaqi.mashaf
 
+import android.graphics.Color
 import android.graphics.Typeface
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -23,7 +27,6 @@ class QuranAdapter(
 
         val item = items[position]
         val tv = holder.b.tvAyah
-
         tv.typeface = amiri
 
         when (item) {
@@ -36,9 +39,23 @@ class QuranAdapter(
 
             is QItem.Ayah -> {
 
-                val ayahNumber = formatAyahNumber(item.ayahIndex + 1)
+                val number = formatAyahNumber(item.ayahIndex + 1)
+                val fullText = "${item.text} $number"
 
-                tv.text = "${item.text} $ayahNumber"
+                val spannable = SpannableString(fullText)
+
+                val start = fullText.indexOf(number)
+                val end = start + number.length
+
+                // ✅ لون أحمر للرقم فقط
+                spannable.setSpan(
+                    ForegroundColorSpan(Color.RED),
+                    start,
+                    end,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+
+                tv.text = spannable
                 tv.gravity = Gravity.END
                 tv.textSize = 24f
             }
@@ -49,7 +66,7 @@ class QuranAdapter(
 
     fun getItemAt(pos: Int): QItem = items[pos]
 
-    // ✅ تنسيق رقم الآية: ﴿١﴾
+    // تحويل الرقم إلى عربي داخل ﴿ ﴾
     private fun formatAyahNumber(n: Int): String {
 
         val arabicNumber = n.toString()
