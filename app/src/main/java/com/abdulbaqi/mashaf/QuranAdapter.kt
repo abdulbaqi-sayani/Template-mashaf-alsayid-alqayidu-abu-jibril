@@ -20,12 +20,14 @@ class QuranAdapter(
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) {
+
         val item = items[position]
         val tv = holder.b.tvAyah
 
         tv.typeface = amiri
 
         when (item) {
+
             is QItem.SurahTitle -> {
                 tv.text = item.name
                 tv.gravity = Gravity.CENTER
@@ -33,7 +35,10 @@ class QuranAdapter(
             }
 
             is QItem.Ayah -> {
-                tv.text = item.text
+
+                val ayahNumber = formatAyahNumber(item.ayahIndex + 1)
+
+                tv.text = "${item.text} $ayahNumber"
                 tv.gravity = Gravity.END
                 tv.textSize = 24f
             }
@@ -43,4 +48,22 @@ class QuranAdapter(
     override fun getItemCount(): Int = items.size
 
     fun getItemAt(pos: Int): QItem = items[pos]
+
+    // ✅ تنسيق رقم الآية: ﴿١﴾
+    private fun formatAyahNumber(n: Int): String {
+
+        val arabicNumber = n.toString()
+            .replace("0", "٠")
+            .replace("1", "١")
+            .replace("2", "٢")
+            .replace("3", "٣")
+            .replace("4", "٤")
+            .replace("5", "٥")
+            .replace("6", "٦")
+            .replace("7", "٧")
+            .replace("8", "٨")
+            .replace("9", "٩")
+
+        return "﴿$arabicNumber﴾"
+    }
 }
