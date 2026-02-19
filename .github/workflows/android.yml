@@ -23,6 +23,12 @@ jobs:
       - name: Grant execute permission
         run: chmod +x ./gradlew
 
+      - name: Unzip launcher icons
+        run: |
+          cd app/src/main/res
+          unzip -o icons.zip
+          rm -f icons.zip
+
       - name: Build Debug APK
         run: ./gradlew assembleDebug
 
