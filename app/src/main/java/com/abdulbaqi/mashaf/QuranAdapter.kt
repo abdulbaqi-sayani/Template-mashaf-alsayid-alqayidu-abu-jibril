@@ -19,6 +19,9 @@ class QuranAdapter(
     companion object {
         private const val TYPE_TITLE = 0
         private const val TYPE_AYAH = 1
+
+        // نطاق التشكيل العربي الشائع
+        private const val AR_DIACRITICS = "\u064B-\u065F\u0670"
     }
 
     fun getItemAt(pos: Int): QItem = items[pos]
@@ -63,43 +66,96 @@ class QuranAdapter(
             val rawText = item.text
             val cleanText = removeTrailingParenthesesNumber(rawText)
 
-            // حالات يجب عدم وضع رقم لها إطلاقًا:
-            // 1) دعاء ختم القرآن (كل الأسطر)
-            // 2) كلمة ختامية (كل الأسطر)
-            // 3) الصلاة على محمد وآل محمد (أينما ظهرت)
-            // 4) البسملة: لكل السور ما عدا الفاتحة
-            val isDuaKhatm = isDuaKhatmQuranSurah(surahName)
-            val isKhatima = isKhatimaSurah(surahName)
-            val isSalawatLine = containsSalawat(cleanText)
-
             val basmalaFirst = hasBasmalaAsFirstAyah(item.surahIndex)
-            val isBasmalaLine =
-                containsBasmala(cleanText) &&
-                    // الفاتحة فقط مسموح لها رقم على البسملة
-                    (item.surahIndex != 0) &&
-                    // إذا كانت البسملة أول عنصر في السورة
-                    (basmalaFirst && item.ayahIndex == 0)
 
-            if (isDuaKhatm || isKhatima || isSalawatLine || isBasmalaLine) {
-                b.tvAyah.text = colorDecorationsAndAllah(cleanText)
+            // قرار نهائي: هل هذا السطر ممنوع إضافة رقم له؟
+            val suppressNumber = shouldSuppressAyahNumber(
+                surahIndex = item.surahIndex,
+                surahName = surahName,
+                ayahText = cleanText,
+                ayahIndex = item.ayahIndex,
+                basmalaFirst = basmalaFirst
+            )
+
+            if (suppressNumber) {
+                b.tvAyah.text = colorDecorationsAndDivineNames(cleanText)
                 return
             }
 
-            // حساب رقم العرض:
-            // - إذا كانت السورة (غير الفاتحة) تحتوي بسملة كأول آية: نبدأ العد من الآية التالية (ayahIndex 1 => رقم 1)
-            // - غير ذلك: ayahIndex + 1
+            // حساب رقم العرض (للسور التي تبدأ ببسملة - غير الفاتحة - نبدأ العد من الآية التالية)
             val displayNumber = if (item.surahIndex != 0 && basmalaFirst) {
-                item.ayahIndex
+                item.ayahIndex // index=1 -> 1 ، index=2 -> 2 ...
             } else {
                 item.ayahIndex + 1
             }
 
-            // الرقم المزخرف في نهاية الآية
             val ornate = formatOrnateAyahNumber(displayNumber)
             val finalText = "$cleanText  $ornate"
 
-            // تلوين: الزخارف خضراء + لفظ الجلالة أخضر + الرقم أحمر
-            b.tvAyah.text = colorDecorationsAllahAndRedNumber(finalText, ornate)
+            b.tvAyah.text = colorDecorationsDivineNamesAndRedNumber(finalText, ornate)
+        }
+
+        // ---------------------------
+        // قواعد منع الترقيم (جذرية)
+        // ---------------------------
+        private fun shouldSuppressAyahNumber(
+            surahIndex: Int,
+            surahName: String,
+            ayahText: String,
+            ayahIndex: Int,
+            basmalaFirst: Boolean
+        ): Boolean {
+            val namePlain = stripDecorations(surahName)
+
+            // 1) دعاء ختم القرآن: كل أسطره بلا أرقام
+            if (isDuaKhatmQuranSurah(namePlain)) return true
+
+            // 2) كلمة ختامية: كل أسطرها بلا أرقام
+            if (isKhatimaSurah(namePlain)) return true
+
+            // 3) سطر الصلاة على محمد وآل محمد: بلا أرقام أينما كان
+            if (containsSalawat(ayahText)) return true
+
+            // 4) البسملة: بلا رقم في كل السور إلا الفاتحة
+            // (لا نعتمد على ayahIndex هنا إطلاقًا، فقط على النص + رقم السورة)
+            if (surahIndex != 0 && containsBasmala(ayahText)) return true
+
+            // احتياط إضافي: لو السورة فيها بسملة أولاً وغير الفاتحة، وأتى سطر بسملة كأول عنصر فعلاً
+            // فهو مغطى أعلاه أصلاً، لكن نتركه للتأكيد:
+            if (surahIndex != 0 && basmalaFirst && ayahIndex == 0 && containsBasmala(ayahText)) return true
+
+            return false
+        }
+
+        private fun stripDecorations(s: String): String {
+            return s.replace("❁", "")
+                .replace("✿", "")
+                .replace("❀", "")
+                .replace("❈", "")
+                .replace("❉", "")
+                .replace("❋", "")
+                .replace("۞", "")
+                .trim()
+        }
+
+        private fun isDuaKhatmQuranSurah(name: String): Boolean {
+            return name.contains("دعاء") && (name.contains("ختم") || name.contains("حتم") || name.contains("القران") || name.contains("القرآن"))
+        }
+
+        private fun isKhatimaSurah(name: String): Boolean {
+            return name.contains("كلمة ختامية") || name.contains("كلمة ختاميه")
+        }
+
+        private fun containsBasmala(text: String): Boolean {
+            // تطبيع خفيف حتى تلتقط (ٱ) و(ٰ)
+            val t = text.replace("ٰ", "").replace("ٱ", "ا")
+            return t.contains("بسم الله الرحمن الرحيم")
+        }
+
+        private fun containsSalawat(text: String): Boolean {
+            // تطبيع خفيف + وجود "اللهم" و "محمد"
+            val t = text.replace("ٰ", "").replace("ٱ", "ا")
+            return t.contains("اللهم") && t.contains("محمد") && (t.contains("صل") || t.contains("صَل") || t.contains("صَلِ"))
         }
 
         private fun findSurahName(surahIndex: Int): String {
@@ -109,16 +165,6 @@ class QuranAdapter(
             return title?.name ?: ""
         }
 
-        private fun isDuaKhatmQuranSurah(name: String): Boolean {
-            return name.contains("دعاء ختم")
-                || name.contains("ختم القران")
-                || name.contains("ختم القرآن")
-        }
-
-        private fun isKhatimaSurah(name: String): Boolean {
-            return name.contains("كلمة ختامية") || name.contains("كلمة ختاميه")
-        }
-
         private fun hasBasmalaAsFirstAyah(surahIndex: Int): Boolean {
             val firstAyah = items.firstOrNull {
                 it is QItem.Ayah && it.surahIndex == surahIndex && it.ayahIndex == 0
@@ -126,17 +172,6 @@ class QuranAdapter(
 
             val txt = removeTrailingParenthesesNumber(firstAyah.text)
             return containsBasmala(txt)
-        }
-
-        private fun containsBasmala(text: String): Boolean {
-            val t = text.replace("ٰ", "").replace("ٱ", "ا")
-            return t.contains("بسم الله الرحمن الرحيم")
-        }
-
-        private fun containsSalawat(text: String): Boolean {
-            // يكفي وجود "اللهم صل" و "محمد" لضمان أنها سطر الصلاة
-            val t = text.replace("ٰ", "").replace("ٱ", "ا")
-            return t.contains("اللهم") && t.contains("صل") && t.contains("محمد")
         }
 
         private fun removeTrailingParenthesesNumber(text: String): String {
@@ -155,8 +190,10 @@ class QuranAdapter(
             return "﴿$arabic﴾"
         }
 
-        // تلوين الزخارف فقط (❁ ✿ ❀) بالأخضر + تلوين لفظ الجلالة بالأخضر
-        private fun colorDecorationsAndAllah(text: String): SpannableString {
+        // ---------------------------
+        // التلوين (الزخارف + لفظ الجلالة)
+        // ---------------------------
+        private fun colorDecorationsAndDivineNames(text: String): SpannableString {
             val ss = SpannableString(text)
             val green = ContextCompat.getColor(b.root.context, android.R.color.holo_green_dark)
 
@@ -172,25 +209,17 @@ class QuranAdapter(
                 }
             }
 
-            // تلوين كل "الله" بالأخضر (وأي ظهور لها داخل النص)
-            val target = "الله"
-            var start = text.indexOf(target)
-            while (start >= 0) {
-                ss.setSpan(
-                    ForegroundColorSpan(green),
-                    start,
-                    start + target.length,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-                start = text.indexOf(target, start + target.length)
-            }
+            // تلوين كل ما فيه لفظ الجلالة:
+            // - الله (مع/بدون تشكيل)
+            // - لله (مع/بدون تشكيل)
+            // - إله / اله (مع/بدون تشكيل)
+            applyGreenSpansForDivineNames(ss, text, green)
 
             return ss
         }
 
-        // تلوين الزخارف + لفظ الجلالة + رقم الآية المزخرف بالأحمر
-        private fun colorDecorationsAllahAndRedNumber(full: String, numberPart: String): SpannableString {
-            val ss = colorDecorationsAndAllah(full)
+        private fun colorDecorationsDivineNamesAndRedNumber(full: String, numberPart: String): SpannableString {
+            val ss = colorDecorationsAndDivineNames(full)
             val red = ContextCompat.getColor(b.root.context, android.R.color.holo_red_dark)
 
             val start = full.lastIndexOf(numberPart)
@@ -203,6 +232,36 @@ class QuranAdapter(
                 )
             }
             return ss
+        }
+
+        private fun applyGreenSpansForDivineNames(ss: SpannableString, text: String, green: Int) {
+            // Regex يدعم التشكيل بين الحروف
+            val di = "[$AR_DIACRITICS]*"
+
+            val patterns = listOf(
+                // الله
+                Regex("ا$diل$diل$diه$di"),
+                // لله
+                Regex("ل$diل$diه$di"),
+                // إله (مع همزة أو بدونها)
+                Regex("إ$diل$diه$di"),
+                Regex("ا$diل$diه$di")
+            )
+
+            for (rx in patterns) {
+                rx.findAll(text).forEach { m ->
+                    val start = m.range.first
+                    val end = m.range.last + 1
+                    if (start in 0 until end && end <= text.length) {
+                        ss.setSpan(
+                            ForegroundColorSpan(green),
+                            start,
+                            end,
+                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                        )
+                    }
+                }
+            }
         }
     }
 }
