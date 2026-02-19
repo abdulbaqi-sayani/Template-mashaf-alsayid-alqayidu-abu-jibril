@@ -1,0 +1,69 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ develop ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "11"
+
+      - name: Grant execute permission
+        run: chmod +x ./gradlew
+
+      - name: Restore launcher icons from icons.zip
+        shell: bash
+        run: |
+          set -e
+
+          ZIP_PATH="app/src/main/res/icons.zip"
+          [ -f "$ZIP_PATH" ] || (echo "ERROR: icons.zip not found at $ZIP_PATH"; exit 1)
+
+          TMP_DIR="$(mktemp -d)"
+          unzip -o "$ZIP_PATH" -d "$TMP_DIR" >/dev/null
+
+          # ابحث عن mipmap-mdpi داخل zip (حتى لو داخل مجلدات إضافية)
+          MIPMAP_MDPI="$(find "$TMP_DIR" -type d -name mipmap-mdpi | head -n 1)"
+          [ -n "$MIPMAP_MDPI" ] || (echo "ERROR: mipmap-mdpi not found inside icons.zip"; exit 1)
+          SRC_ROOT="$(dirname "$MIPMAP_MDPI")"
+
+          echo "== Remove old mipmap folders =="
+          rm -rf app/src/main/res/mipmap-* || true
+          rm -rf app/src/main/res/mipmap-anydpi-v26 || true
+
+          echo "== Copy new mipmap folders =="
+          cp -R "$SRC_ROOT"/mipmap-* app/src/main/res/
+
+          echo "== Ensure ic_launcher_round exists (copy from ic_launcher) =="
+          for d in app/src/main/res/mipmap-*; do
+            if [ -d "$d" ]; then
+              if [ -f "$d/ic_launcher.png" ] && [ ! -f "$d/ic_launcher_round.png" ]; then
+                cp "$d/ic_launcher.png" "$d/ic_launcher_round.png"
+              fi
+            fi
+          done
+
+          echo "== Verify icons =="
+          find app/src/main/res -maxdepth 2 -type f -name "ic_launcher*.png" -print || true
+
+          rm -f "$ZIP_PATH"
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/*.apk
