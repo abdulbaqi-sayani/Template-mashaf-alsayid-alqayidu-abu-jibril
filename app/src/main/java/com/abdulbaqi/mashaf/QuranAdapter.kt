@@ -62,17 +62,13 @@ class QuranAdapter(
             val surahName = findSurahName(item.surahIndex)
             val cleanText = removeTrailingParenthesesNumber(item.text)
 
-            // 1) أسطر بلا أرقام إطلاقًا:
-            // - دعاء ختم القرآن
-            // - كلمة ختامية
-            // - الصلاة على محمد وآل محمد
-            // - البسملة في كل السور ما عدا الفاتحة
+            // أسطر بلا أرقام إطلاقًا:
             if (isNoNumberLine(item.surahIndex, surahName, cleanText)) {
                 b.tvAyah.text = applyAllColors(cleanText, ornateNumberPart = null)
                 return
             }
 
-            // 2) رقم العرض (العدّ يبدأ من أول آية غير البسملة إذا كانت البسملة موجودة كأول عنصر)
+            // رقم العرض (العدّ يبدأ من أول آية غير البسملة إذا كانت البسملة موجودة كأول عنصر)
             val basmalaFirst = hasBasmalaAsFirstAyah(item.surahIndex)
             val displayNumber = if (item.surahIndex != 0 && basmalaFirst) {
                 item.ayahIndex // index=1 -> رقم 1
@@ -80,26 +76,25 @@ class QuranAdapter(
                 item.ayahIndex + 1
             }
 
-            // 3) الرقم المزخرف في نهاية الآية
             val ornate = formatOrnateAyahNumber(displayNumber)
             val finalText = "$cleanText  $ornate"
 
             b.tvAyah.text = applyAllColors(finalText, ornateNumberPart = ornate)
         }
 
-        // -------------------- قواعد منع الترقيم --------------------
+        // -------------------- منع الترقيم --------------------
 
         private fun isNoNumberLine(surahIndex: Int, surahName: String, text: String): Boolean {
-            // (A) دعاء ختم القرآن: كل الأسطر بلا أرقام
+            // دعاء ختم القرآن: كل الأسطر بلا أرقام
             if (isDuaKhatmQuranSurah(surahName)) return true
 
-            // (B) كلمة ختامية: كل الأسطر بلا أرقام
+            // كلمة ختامية: كل الأسطر بلا أرقام
             if (isKhatimaSurah(surahName)) return true
 
-            // (C) الصلاة على محمد وآل محمد: بلا رقم
+            // الصلاة على محمد وآل محمد: بلا رقم
             if (isSalawatLine(text)) return true
 
-            // (D) البسملة: بلا رقم في كل السور إلا الفاتحة
+            // البسملة: بلا رقم في كل السور إلا الفاتحة
             if (isBasmalaLine(surahIndex, text)) return true
 
             return false
@@ -117,15 +112,11 @@ class QuranAdapter(
 
         private fun isSalawatLine(text: String): Boolean {
             val n = normalizeArabicForMatch(text)
-            // يكفي وجود "اللهم" + "صل" + "محمد" في نفس السطر
             return n.contains("اللهم") && n.contains("صل") && n.contains("محمد")
         }
 
         private fun isBasmalaLine(surahIndex: Int, text: String): Boolean {
-            // الفاتحة (index=0) مسموح للبسملة رقم، فلا نمنعها
-            if (surahIndex == 0) return false
-
-            // إذا السطر يحتوي البسملة → ممنوع رقم
+            if (surahIndex == 0) return false // الفاتحة مسموح لها رقم
             return containsBasmala(text)
         }
 
@@ -146,15 +137,12 @@ class QuranAdapter(
         // -------------------- ألوان وتنسيق --------------------
 
         private fun applyAllColors(text: String, ornateNumberPart: String?): SpannableString {
-            // 1) تلوين الزخارف ❁ ✿ ❀ بالأخضر
-            // 2) تلوين لفظ الجلالة بالأخضر
-            // 3) تلوين الرقم المزخرف بالأحمر (إن وجد)
             val ss = SpannableString(text)
 
             val green = ContextCompat.getColor(b.root.context, android.R.color.holo_green_dark)
             val red = ContextCompat.getColor(b.root.context, android.R.color.holo_red_dark)
 
-            // (A) زخارف: ❁ ✿ ❀
+            // (A) زخارف: ❁ ✿ ❀ بالأخضر
             val deco = setOf('❁', '✿', '❀')
             for (i in text.indices) {
                 if (deco.contains(text[i])) {
@@ -162,10 +150,16 @@ class QuranAdapter(
                 }
             }
 
-            // (B) تلوين لفظ الجلالة (الله / اللَّه / لله / إله)
-            colorAllahWords(ss, text, green)
+            // (B) تلوين "الله" فقط بالأخضر (بدون إله/لله)
+            colorExactWordBySimplified(ss, original = text, needle = "الله", color = green)
 
-            // (C) الرقم المزخرف بالأحمر
+            // (C) تلوين "إسرائيل" و"اليهود" بالأحمر في كامل المصحف
+            // نلوّن أيضاً "اسرائيل" بدون همزة احتياطاً
+            colorExactWordBySimplified(ss, original = text, needle = "إسرائيل", color = red)
+            colorExactWordBySimplified(ss, original = text, needle = "اسرائيل", color = red)
+            colorExactWordBySimplified(ss, original = text, needle = "اليهود", color = red)
+
+            // (D) الرقم المزخرف بالأحمر (إن وجد)
             if (!ornateNumberPart.isNullOrEmpty()) {
                 val start = text.lastIndexOf(ornateNumberPart)
                 if (start >= 0) {
@@ -181,117 +175,42 @@ class QuranAdapter(
             return ss
         }
 
-        private fun colorAllahWords(ss: SpannableString, original: String, green: Int) {
-            // نبحث في النص الأصلي عن "الله" بأشكالها، بدون ما نكسر الإعراب.
-            // نلوّن أي مقطع يحتوي: الله
-            // وكذلك "لله" و"إله" (لكن نركّز على وجود "الله" صراحة أو "لله")
-            // الحل العملي: نبحث عن تسلسل "الل" ثم "ه" مع أي حركات بينهم.
-            val simplified = removeDiacritics(original)
-
-            // مواضع "الله"
-            highlightAllOccurrences(ss, original, simplified, "الله", green)
-
-            // مواضع "لله" (قد لا تُلتقط لو كانت بدون ألف قبلها في النص الأصلي)
-            highlightAllOccurrences(ss, original, simplified, "لله", green)
-
-            // مواضع "إله" (اختياري)
-            highlightAllOccurrences(ss, original, simplified, "إله", green)
-            highlightAllOccurrences(ss, original, simplified, "اله", green)
-        }
-
-        private fun highlightAllOccurrences(
+        /**
+         * يلوّن كلمة معينة بالاعتماد على نسخة مبسطة (بدون حركات + تطبيع بعض الحروف)
+         * ثم يحوّل النطاق إلى النص الأصلي حتى يلوّنها كما هي (بالحركات والزخارف).
+         */
+        private fun colorExactWordBySimplified(
             ss: SpannableString,
             original: String,
-            simplifiedOriginal: String,
             needle: String,
             color: Int
         ) {
-            var idx = simplifiedOriginal.indexOf(needle)
+            val simplifiedOriginal = simplifyForSearch(original)
+            val simplifiedNeedle = simplifyForSearch(needle)
+
+            var idx = simplifiedOriginal.indexOf(simplifiedNeedle)
             while (idx >= 0) {
-                // نحاول إسقاط هذا الموضع على الأصل:
-                // بما أننا حذفنا الحركات فقط، طول الأصل قد يكون أكبر.
-                // نحدد مدى تقريبي عبر التقدم في الأصل حتى نصل لنفس عدد الحروف بدون حركات.
-                val (start, end) = mapSimplifiedRangeToOriginal(original, idx, idx + needle.length)
+                val (start, end) = mapSimplifiedRangeToOriginal(original, idx, idx + simplifiedNeedle.length)
                 if (start >= 0 && end > start && end <= original.length) {
                     ss.setSpan(ForegroundColorSpan(color), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
-                idx = simplifiedOriginal.indexOf(needle, idx + needle.length)
+                idx = simplifiedOriginal.indexOf(simplifiedNeedle, idx + simplifiedNeedle.length)
             }
         }
 
-        private fun mapSimplifiedRangeToOriginal(original: String, sStart: Int, sEnd: Int): Pair<Int, Int> {
-            var oIndex = 0
-            var sIndex = 0
-            var oStart = -1
-            var oEnd = -1
-
-            while (oIndex < original.length && sIndex < sEnd) {
-                val ch = original[oIndex]
-                val isDiacritic = isArabicDiacritic(ch)
-
-                if (!isDiacritic) {
-                    if (sIndex == sStart) oStart = oIndex
-                    sIndex++
-                    if (sIndex == sEnd) {
-                        oEnd = oIndex + 1
-                        break
-                    }
-                }
-                oIndex++
-            }
-
-            if (oStart == -1 || oEnd == -1) return -1 to -1
-            return oStart to oEnd
-        }
-
-        private fun removeDiacritics(text: String): String {
-            val sb = StringBuilder(text.length)
-            for (c in text) {
-                if (!isArabicDiacritic(c)) sb.append(c)
-            }
-            return sb.toString()
-        }
-
-        private fun isArabicDiacritic(c: Char): Boolean {
-            // نطاقات حركات عربية شائعة + علامات قرآنية (تقريب عملي)
-            val code = c.code
-            return (code in 0x064B..0x065F) || (code in 0x0610..0x061A) || (code in 0x06D6..0x06ED) || c == 'ٰ'
-        }
-
-        // -------------------- أدوات نصية --------------------
-
-        private fun findSurahName(surahIndex: Int): String {
-            val title = items.firstOrNull {
-                it is QItem.SurahTitle && it.surahIndex == surahIndex
-            } as? QItem.SurahTitle
-            return title?.name ?: ""
-        }
-
-        private fun normalizeArabicForMatch(text: String): String {
-            return text
-                .replace("ٰ", "")
+        private fun simplifyForSearch(text: String): String {
+            val noDia = removeDiacritics(text)
+            return noDia
                 .replace("ٱ", "ا")
                 .replace("أ", "ا")
                 .replace("إ", "ا")
                 .replace("آ", "ا")
                 .replace("ى", "ي")
+                .replace("ـ", "")
                 .trim()
         }
 
-        private fun removeTrailingParenthesesNumber(text: String): String {
-            // يحذف (1) أو ( ١ ) من نهاية السطر فقط
-            val trimmed = text.trim()
-            val regex = Regex("""\s*\(\s*[\d٠١٢٣٤٥٦٧٨٩]+\s*\)\s*$""")
-            return trimmed.replace(regex, "").trim()
-        }
-
-        private fun formatOrnateAyahNumber(n: Int): String {
-            val arabic = n.toString()
-                .replace("0", "٠").replace("1", "١").replace("2", "٢").replace("3", "٣")
-                .replace("4", "٤").replace("5", "٥").replace("6", "٦").replace("7", "٧")
-                .replace("8", "٨").replace("9", "٩")
-
-            return "﴿$arabic﴾"
-        }
-    }
-}
+        private fun mapSimplifiedRangeToOriginal(original: String, sStart: Int, sEnd: Int): Pair<Int, Int> {
+            var oIndex = 0
+            var sIndex = 0
+            var oStart = -
