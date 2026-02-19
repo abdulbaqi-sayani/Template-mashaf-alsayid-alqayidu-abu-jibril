@@ -1,0 +1,40 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ develop ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "11"
+
+      - run: chmod +x ./gradlew
+
+      - name: Restore launcher icons from icons.zip
+        shell: bash
+        run: |
+          set -e
+          ZIP_PATH="app/src/main/res/icons.zip"
+          [ -f "$ZIP_PATH" ] || (echo "icons.zip not found"; exit 1)
+          TMP_DIR="$(mktemp -d)"
+          unzip -o "$ZIP_PATH" -d "$TMP_DIR" >/dev/null
+          MIPMAP_MDPI="$(find "$TMP_DIR" -type d -name mipmap-mdpi | head -n 1)"
+          [ -n "$MIPMAP_MDPI" ] || (echo "mipmap not found in zip"; exit 1)
+          SRC_ROOT="$(dirname "$MIPMAP_MDPI")"
+          rm -rf app/src/main/res/mipmap-*
+          cp -R "$SRC_ROOT"/mipmap-* app/src/main/res/
+
+      - run: ./gradlew assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/*.apk
