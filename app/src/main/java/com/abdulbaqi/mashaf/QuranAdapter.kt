@@ -117,11 +117,9 @@ class QuranAdapter(
             if (containsSalawat(ayahText)) return true
 
             // 4) البسملة: بلا رقم في كل السور إلا الفاتحة
-            // (لا نعتمد على ayahIndex هنا إطلاقًا، فقط على النص + رقم السورة)
             if (surahIndex != 0 && containsBasmala(ayahText)) return true
 
-            // احتياط إضافي: لو السورة فيها بسملة أولاً وغير الفاتحة، وأتى سطر بسملة كأول عنصر فعلاً
-            // فهو مغطى أعلاه أصلاً، لكن نتركه للتأكيد:
+            // احتياط إضافي
             if (surahIndex != 0 && basmalaFirst && ayahIndex == 0 && containsBasmala(ayahText)) return true
 
             return false
@@ -147,13 +145,11 @@ class QuranAdapter(
         }
 
         private fun containsBasmala(text: String): Boolean {
-            // تطبيع خفيف حتى تلتقط (ٱ) و(ٰ)
             val t = text.replace("ٰ", "").replace("ٱ", "ا")
             return t.contains("بسم الله الرحمن الرحيم")
         }
 
         private fun containsSalawat(text: String): Boolean {
-            // تطبيع خفيف + وجود "اللهم" و "محمد"
             val t = text.replace("ٰ", "").replace("ٱ", "ا")
             return t.contains("اللهم") && t.contains("محمد") && (t.contains("صل") || t.contains("صَل") || t.contains("صَلِ"))
         }
@@ -175,7 +171,6 @@ class QuranAdapter(
         }
 
         private fun removeTrailingParenthesesNumber(text: String): String {
-            // يحذف أي (1) أو ( ١ ) في آخر السطر فقط
             val trimmed = text.trim()
             val regex = Regex("""\s*\(\s*[\d٠١٢٣٤٥٦٧٨٩]+\s*\)\s*$""")
             return trimmed.replace(regex, "").trim()
@@ -209,12 +204,7 @@ class QuranAdapter(
                 }
             }
 
-            // تلوين كل ما فيه لفظ الجلالة:
-            // - الله (مع/بدون تشكيل)
-            // - لله (مع/بدون تشكيل)
-            // - إله / اله (مع/بدون تشكيل)
             applyGreenSpansForDivineNames(ss, text, green)
-
             return ss
         }
 
@@ -235,24 +225,25 @@ class QuranAdapter(
         }
 
         private fun applyGreenSpansForDivineNames(ss: SpannableString, text: String, green: Int) {
-            // Regex يدعم التشكيل بين الحروف
             val di = "[$AR_DIACRITICS]*"
 
+            // ✅ الإصلاح هنا: بناء النص بالـ String template بشكل صحيح
             val patterns = listOf(
                 // الله
-                Regex("ا$diل$diل$diه$di"),
+                Regex("ا${di}ل${di}ل${di}ه${di}"),
                 // لله
-                Regex("ل$diل$diه$di"),
-                // إله (مع همزة أو بدونها)
-                Regex("إ$diل$diه$di"),
-                Regex("ا$diل$diه$di")
+                Regex("ل${di}ل${di}ه${di}"),
+                // إله (همزة)
+                Regex("إ${di}ل${di}ه${di}"),
+                // اله (بدون همزة)
+                Regex("ا${di}ل${di}ه${di}")
             )
 
             for (rx in patterns) {
                 rx.findAll(text).forEach { m ->
                     val start = m.range.first
                     val end = m.range.last + 1
-                    if (start in 0 until end && end <= text.length) {
+                    if (start >= 0 && end <= text.length) {
                         ss.setSpan(
                             ForegroundColorSpan(green),
                             start,
