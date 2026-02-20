@@ -5,24 +5,37 @@ plugins {
 
 android {
     namespace = "com.abdulbaqi.mashaf"
-    compileSdk = 31
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.abdulbaqi.mashaf"
         minSdk = 21
-        targetSdk = 31
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        vectorDrawables {
-            useSupportLibrary = true
-        }
+        // 🔥 مهم جدًا لتقليل الحجم (العربية فقط)
+        resConfigs("ar")
+    }
+
+    buildFeatures {
+        viewBinding = true
     }
 
     buildTypes {
-        getByName("release") {
+
+        debug {
             isMinifyEnabled = false
+            isShrinkResources = false
+        }
+
+        release {
+            // 🔥 أهم سطرين لتقليل الحجم
+            isMinifyEnabled = true
+            isShrinkResources = true
+
+            isDebuggable = false
+
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -30,34 +43,33 @@ android {
         }
     }
 
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt",
+                "META-INF/*.kotlin_module"
+            )
+        }
+    }
+
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "11"
-    }
-
-    buildFeatures {
-        viewBinding = true
-    }
-
-    packagingOptions {
-        resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
+        jvmTarget = "17"
     }
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.7.0")
-    implementation("androidx.appcompat:appcompat:1.4.1")
-    implementation("com.google.android.material:material:1.5.0")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.3")
-    implementation("androidx.recyclerview:recyclerview:1.2.1")
 
-    testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.1.3")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.4.0")
+    // الأساسيات فقط (لا نضيف أي مكتبات ثقيلة)
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
 }
