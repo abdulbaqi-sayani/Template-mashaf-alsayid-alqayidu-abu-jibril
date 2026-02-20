@@ -1,0 +1,69 @@
+name: Android CI
+
+on:
+  push:
+    branches: [ develop, main ]
+  pull_request:
+    branches: [ develop, main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      # ✅ فك icons.zip + طباعة المحتوى + إصلاح الأيقونات مهما كان ترتيب الملفات
+      - name: Restore launcher icons from icons.zip (force fix)
+        if: hashFiles('icons.zip') != ''
+        run: |
+          rm -rf /tmp/icons_unzip
+          mkdir -p /tmp/icons_unzip
+          unzip -o icons.zip -d /tmp/icons_unzip
+
+          echo "===== محتويات icons.zip (أهم الملفات) ====="
+          find /tmp/icons_unzip -maxdepth 6 -type f | head -n 200
+          echo "=========================================="
+
+          # ابحث عن ic_launcher.png و ic_launcher_round.png أينما كانت
+          ICON_MAIN=$(find /tmp/icons_unzip -type f -name "ic_launcher.png" | head -n 1 || true)
+          ICON_ROUND=$(find /tmp/icons_unzip -type f -name "ic_launcher_round.png" | head -n 1 || true)
+
+          if [ -z "$ICON_MAIN" ] || [ -z "$ICON_ROUND" ]; then
+            echo "❌ لم أجد ic_launcher.png أو ic_launcher_round.png داخل icons.zip"
+            echo "جرّب إعادة إنشاء zip بحيث يحتوي res/mipmap-*/ic_launcher*.png"
+            exit 1
+          fi
+
+          echo "✅ تم العثور على:"
+          echo "ic_launcher: $ICON_MAIN"
+          echo "ic_launcher_round: $ICON_ROUND"
+
+          # تأكد وجود مجلدات mipmap في مشروعك، وإن لم توجد أنشئها
+          for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
+            mkdir -p "app/src/main/res/$d"
+            cp -f "$ICON_MAIN"  "app/src/main/res/$d/ic_launcher.png"
+            cp -f "$ICON_ROUND" "app/src/main/res/$d/ic_launcher_round.png"
+          done
+
+          echo "✅ تم تثبيت الأيقونات داخل جميع mipmap-*"
+          find app/src/main/res -maxdepth 2 -type f -name "ic_launcher*.png" -print
+
+      - name: Build Release APK
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mashaf-release-apk
+          path: app/build/outputs/apk/release/*.apk
