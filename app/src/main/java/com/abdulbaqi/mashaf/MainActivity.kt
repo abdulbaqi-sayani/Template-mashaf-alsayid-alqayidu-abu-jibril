@@ -4,9 +4,7 @@ import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
-import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.abdulbaqi.mashaf.databinding.ActivityMainBinding
 import org.json.JSONArray
@@ -31,22 +29,29 @@ class MainActivity : AppCompatActivity() {
             b.rvAyah.setHasFixedSize(true)
             b.rvAyah.setItemViewCacheSize(24)
 
-            // Divider مخصص
-            val divider = DividerItemDecoration(this, lm.orientation)
-            ContextCompat.getDrawable(this, R.drawable.divider_ayah)?.let { divider.setDrawable(it) }
-            b.rvAyah.addItemDecoration(divider)
-
             val amiri = ResourcesCompat.getFont(this, R.font.amiri_quran)
 
-            // ✅ تحميل وبناء القائمة بالخلفية (حل بطء الفتح)
+            // رقم السورة المطلوب فتحها
+            val surahIndex = intent.getIntExtra("surahIndex", -1)
+
+            // تحميل السورة في الخلفية (خفيف جدًا الآن)
             Thread {
                 try {
-                    val built = buildItemsFromJson()
+                    val built = buildItemsForOneSurah(surahIndex)
                     runOnUiThread {
                         items = built
-                        val adapter = QuranAdapter(items, amiri)
-                        b.rvAyah.adapter = adapter
-                        handleScrollAfterLoad()
+                        b.rvAyah.adapter = QuranAdapter(items, amiri)
+
+                        // فتح على الإشارة المرجعية إن كانت لنفس السورة
+                        if (BookmarkStore.hasBookmark(this)) {
+                            val s = BookmarkStore.getSurahIndex(this)
+                            val a = BookmarkStore.getAyahIndex(this)
+
+                            if (s == surahIndex) {
+                                val pos = items.indexOfFirst { it is QItem.Ayah && it.ayahIndex == a }
+                                if (pos >= 0) b.rvAyah.post { lm.scrollToPositionWithOffset(pos, 0) }
+                            }
+                        }
                     }
                 } catch (e: Exception) {
                     runOnUiThread {
@@ -62,75 +67,53 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun buildItemsFromJson(): ArrayList<QItem> {
+    private fun buildItemsForOneSurah(surahIndex: Int): ArrayList<QItem> {
         val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
         val surahs = JSONArray(jsonText)
 
-        val out = ArrayList<QItem>(12000)
+        // إذا لم يُرسل رقم سورة، افتح سورة الإشارة المرجعية إن وجدت، وإلا افتح الأولى
+        val safeIndex = when {
+            surahIndex in 0 until surahs.length() -> surahIndex
+            BookmarkStore.hasBookmark(this) -> BookmarkStore.getSurahIndex(this).coerceIn(0, surahs.length() - 1)
+            else -> 0
+        }
 
-        for (s in 0 until surahs.length()) {
-            val surahObj = surahs.getJSONObject(s)
-            val name = surahObj.getString("name")
+        val surahObj = surahs.getJSONObject(safeIndex)
+        val name = surahObj.getString("name")
+        val ayahsArray = surahObj.getJSONArray("ayahs")
 
-            out.add(QItem.SurahTitle(name = name, surahIndex = s))
+        val out = ArrayList<QItem>(ayahsArray.length() + 1)
 
-            val ayahsArray = surahObj.getJSONArray("ayahs")
-            for (a in 0 until ayahsArray.length()) {
-                val raw = ayahsArray.optString(a, "")
-                val text = raw
-                    .replace("\r", " ")
-                    .replace("\n", " ")
-                    .replace(Regex("\\s+"), " ")
-                    .trim()
+        // عنوان السورة
+        out.add(QItem.SurahTitle(name = name, surahIndex = safeIndex))
 
-                if (text.isNotBlank()) {
-                    out.add(QItem.Ayah(text = text, surahIndex = s, ayahIndex = a))
-                }
+        // الآيات
+        for (a in 0 until ayahsArray.length()) {
+            val raw = ayahsArray.optString(a, "")
+            val text = raw
+                .replace("\r", " ")
+                .replace("\n", " ")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+
+            if (text.isNotBlank()) {
+                out.add(QItem.Ayah(text = text, surahIndex = safeIndex, ayahIndex = a))
             }
         }
+
         return out
-    }
-
-    private fun handleScrollAfterLoad() {
-        val fromIndex = intent.getBooleanExtra("fromIndex", false)
-        val wantedName = intent.getStringExtra("surahName")
-        val wantedIndex = intent.getIntExtra("surahIndex", -1)
-
-        if (fromIndex) {
-            var pos = if (!wantedName.isNullOrBlank()) {
-                items.indexOfFirst { it is QItem.SurahTitle && it.name == wantedName }
-            } else -1
-
-            if (pos < 0 && wantedIndex >= 0) {
-                pos = items.indexOfFirst { it is QItem.SurahTitle && it.surahIndex == wantedIndex }
-            }
-
-            if (pos >= 0) {
-                b.rvAyah.post { lm.scrollToPositionWithOffset(pos, 0) }
-            } else {
-                Toast.makeText(this, "لم يتم العثور على السورة", Toast.LENGTH_SHORT).show()
-            }
-            return
-        }
-
-        // متابعة القراءة من الإشارة المرجعية
-        if (BookmarkStore.hasBookmark(this)) {
-            val s = BookmarkStore.getSurahIndex(this)
-            val a = BookmarkStore.getAyahIndex(this)
-
-            val pos = items.indexOfFirst { it is QItem.Ayah && it.surahIndex == s && it.ayahIndex == a }
-            if (pos >= 0) b.rvAyah.post { lm.scrollToPositionWithOffset(pos, 0) }
-        }
     }
 
     override fun onPause() {
         super.onPause()
+
         val adapter = b.rvAyah.adapter as? QuranAdapter ?: return
         val pos = lm.findFirstVisibleItemPosition()
         if (pos < 0) return
 
         val item = adapter.getItemAt(pos)
         if (item is QItem.Ayah) {
+            // حفظ السورة والآية
             BookmarkStore.save(this, item.surahIndex, item.ayahIndex)
         }
     }
