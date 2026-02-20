@@ -4,7 +4,6 @@ import android.graphics.Typeface
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
-import android.util.LruCache
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
@@ -28,36 +27,7 @@ class QuranAdapter(
         private val TRAILING_PARENS_NUMBER = Regex("""\s*\(\s*[\d٠١٢٣٤٥٦٧٨٩]+\s*\)\s*$""")
     }
 
-    private val surahNameByIndex: HashMap<Int, String> = HashMap()
-    private val spanCache = object : LruCache<Long, SpannableString>(900) {}
-
-    init {
-        // بناء خريطة أسماء السور مرة واحدة
-        for (i in items.indices) {
-            val qi = items[i]
-            if (qi is QItem.SurahTitle) {
-                surahNameByIndex[qi.surahIndex] = qi.name
-            }
-        }
-        setHasStableIds(true)
-    }
-
     fun getItemAt(pos: Int): QItem = items[pos]
-
-    override fun getItemId(position: Int): Long {
-        val item = items[position]
-        return when (item) {
-            is QItem.SurahTitle -> makeKey(item.surahIndex, -1, item.name.hashCode())
-            is QItem.Ayah -> makeKey(item.surahIndex, item.ayahIndex, item.text.hashCode())
-        }
-    }
-
-    private fun makeKey(s: Int, a: Int, h: Int): Long {
-        val sPart = (s and 0xFFFF).toLong() shl 48
-        val aPart = (a and 0xFFFF).toLong() shl 32
-        val hPart = (h.toLong() and 0xFFFFFFFFL)
-        return sPart or aPart or hPart
-    }
 
     override fun getItemViewType(position: Int): Int {
         return when (items[position]) {
@@ -78,11 +48,9 @@ class QuranAdapter(
     override fun getItemCount(): Int = items.size
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        val item = items[position]
-        if (item is QItem.SurahTitle) {
-            (holder as TitleVH).bind(item)
-        } else if (item is QItem.Ayah) {
-            (holder as AyahVH).bind(item)
+        when (val item = items[position]) {
+            is QItem.SurahTitle -> (holder as TitleVH).bind(item)
+            is QItem.Ayah -> (holder as AyahVH).bind(item)
         }
     }
 
@@ -97,25 +65,13 @@ class QuranAdapter(
         fun bind(item: QItem.Ayah) {
             b.tvAyah.typeface = amiri
 
-            val surahName = surahNameByIndex[item.surahIndex].orEmpty()
             val cleanText = removeTrailingParenthesesNumber(item.text)
 
-            val key = makeKey(item.surahIndex, item.ayahIndex, cleanText.hashCode())
-            val cached = spanCache.get(key)
-            if (cached != null) {
-                b.tvAyah.text = cached
-                return
-            }
-
-            val result = buildTextSpannable(item, surahName, cleanText)
-            spanCache.put(key, result)
-            b.tvAyah.text = result
-        }
-
-        private fun buildTextSpannable(item: QItem.Ayah, surahName: String, cleanText: String): SpannableString {
-            // أسطر بلا أرقام
+            // شروطك لمنع الترقيم
+            val surahName = findSurahName(item.surahIndex)
             if (isNoNumberLine(item.surahIndex, surahName, cleanText)) {
-                return applyAllColors(cleanText, ornateNumberPart = null)
+                b.tvAyah.text = applyAllColors(cleanText, ornateNumberPart = null)
+                return
             }
 
             // حساب رقم العرض
@@ -124,10 +80,14 @@ class QuranAdapter(
 
             val ornate = formatOrnateAyahNumber(displayNumber)
             val finalText = "$cleanText  $ornate"
-            return applyAllColors(finalText, ornateNumberPart = ornate)
+
+            b.tvAyah.text = applyAllColors(finalText, ornateNumberPart = ornate)
         }
 
-        // -------------------- منع الترقيم حسب شروطك --------------------
+        private fun findSurahName(surahIndex: Int): String {
+            val title = items.firstOrNull { it is QItem.SurahTitle && it.surahIndex == surahIndex } as? QItem.SurahTitle
+            return title?.name ?: ""
+        }
 
         private fun isNoNumberLine(surahIndex: Int, surahName: String, text: String): Boolean {
             if (isDuaKhatmQuranSurah(surahName)) return true
@@ -158,16 +118,11 @@ class QuranAdapter(
         }
 
         private fun hasBasmalaAsFirstAyah(surahIndex: Int): Boolean {
-            var first: QItem.Ayah? = null
-            for (i in items.indices) {
-                val qi = items[i]
-                if (qi is QItem.Ayah && qi.surahIndex == surahIndex && qi.ayahIndex == 0) {
-                    first = qi
-                    break
-                }
-            }
-            if (first == null) return false
-            val txt = removeTrailingParenthesesNumber(first.text)
+            val firstAyah = items.firstOrNull {
+                it is QItem.Ayah && it.surahIndex == surahIndex && it.ayahIndex == 0
+            } as? QItem.Ayah ?: return false
+
+            val txt = removeTrailingParenthesesNumber(firstAyah.text)
             return containsBasmala(txt)
         }
 
@@ -176,15 +131,12 @@ class QuranAdapter(
             return n.contains("بسم الله الرحمن الرحيم")
         }
 
-        // -------------------- التلوين --------------------
-
         private fun applyAllColors(text: String, ornateNumberPart: String?): SpannableString {
             val ss = SpannableString(text)
 
             val green = ContextCompat.getColor(b.root.context, android.R.color.holo_green_dark)
             val red = ContextCompat.getColor(b.root.context, android.R.color.holo_red_dark)
 
-            // زخارف بالأخضر
             val deco = setOf('❁', '✿', '❀')
             for (i in text.indices) {
                 if (deco.contains(text[i])) {
@@ -192,18 +144,14 @@ class QuranAdapter(
                 }
             }
 
-            // الله فقط
-            val matches = ALLAH_PATTERN.findAll(text)
-            for (m in matches) {
+            for (m in ALLAH_PATTERN.findAll(text)) {
                 ss.setSpan(ForegroundColorSpan(green), m.range.first, m.range.last + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
 
-            // إسرائيل + اليهود بالأحمر
             colorAllOccurrences(ss, text, "إسرائيل", red)
             colorAllOccurrences(ss, text, "اسرائيل", red)
             colorAllOccurrences(ss, text, "اليهود", red)
 
-            // الرقم المزخرف بالأحمر
             if (!ornateNumberPart.isNullOrEmpty()) {
                 val start = text.lastIndexOf(ornateNumberPart)
                 if (start >= 0) {
@@ -226,8 +174,6 @@ class QuranAdapter(
                 idx = text.indexOf(needle, idx + needle.length)
             }
         }
-
-        // -------------------- أدوات نصية --------------------
 
         private fun normalizeArabicForMatch(text: String): String {
             return text
