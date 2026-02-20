@@ -4,12 +4,8 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.abdulbaqi.mashaf.databinding.ActivityIndexBinding
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONException
 
@@ -38,42 +34,44 @@ class IndexActivity : AppCompatActivity() {
 
         b.rvIndex.layoutManager = LinearLayoutManager(this)
         b.rvIndex.setHasFixedSize(true)
-        b.rvIndex.itemViewCacheSize = 24
+        b.rvIndex.setItemViewCacheSize(24)
 
-        // ✅ تحميل أسماء السور في الخلفية (حل بطء فتح الفهرس)
-        lifecycleScope.launch {
+        // ✅ تحميل أسماء السور بالخلفية (حل بطء الفهرس)
+        Thread {
             try {
-                val names = withContext(Dispatchers.IO) {
-                    loadSurahNames()
-                }
+                val names = loadSurahNames()
 
-                val bookmarkedSurah = if (BookmarkStore.hasBookmark(this@IndexActivity)) {
-                    BookmarkStore.getSurahIndex(this@IndexActivity)
+                val bookmarkedSurah = if (BookmarkStore.hasBookmark(this)) {
+                    BookmarkStore.getSurahIndex(this)
                 } else -1
 
-                b.rvIndex.adapter = SurahAdapter(
-                    names = names,
-                    bookmarkedIndex = bookmarkedSurah
-                ) { index ->
-                    startActivity(
-                        Intent(this@IndexActivity, MainActivity::class.java)
-                            .putExtra("surahIndex", index)
-                            .putExtra("fromIndex", true)
-                    )
+                runOnUiThread {
+                    b.rvIndex.adapter = SurahAdapter(
+                        names = names,
+                        bookmarkedIndex = bookmarkedSurah
+                    ) { index ->
+                        startActivity(
+                            Intent(this, MainActivity::class.java)
+                                .putExtra("surahIndex", index)
+                                .putExtra("fromIndex", true)
+                        )
+                    }
+                    b.pbLoading.visibility = View.GONE
                 }
 
-                b.pbLoading.visibility = View.GONE
-
             } catch (e: JSONException) {
-                showError(
-                    "خطأ في ملف quran.json (تنسيق JSON غير صحيح).\n" +
-                            "غالبًا يوجد فاصلة أو قوس زائد/ناقص.\n" +
-                            "تفاصيل: ${e.message}"
-                )
+                runOnUiThread {
+                    showError(
+                        "خطأ في ملف quran.json (تنسيق JSON غير صحيح).\n" +
+                                "تفاصيل: ${e.message}"
+                    )
+                }
             } catch (e: Exception) {
-                showError("حدث خطأ أثناء تحميل الفهرس.\nتفاصيل: ${e.message}")
+                runOnUiThread {
+                    showError("حدث خطأ أثناء تحميل الفهرس.\nتفاصيل: ${e.message}")
+                }
             }
-        }
+        }.start()
     }
 
     private fun loadSurahNames(): ArrayList<String> {
