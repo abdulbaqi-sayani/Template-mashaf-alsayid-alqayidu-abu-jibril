@@ -12,7 +12,16 @@ class SurahAdapter(
     private val onClick: (Int) -> Unit
 ) : RecyclerView.Adapter<SurahAdapter.VH>() {
 
+    init {
+        setHasStableIds(true)
+    }
+
     class VH(val b: ItemSurahBinding) : RecyclerView.ViewHolder(b.root)
+
+    override fun getItemId(position: Int): Long {
+        // ثابت لتحسين إعادة الاستخدام
+        return names.getOrNull(position)?.hashCode()?.toLong() ?: position.toLong()
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val b = ItemSurahBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -20,10 +29,11 @@ class SurahAdapter(
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) {
-        holder.b.tvName.text = names.getOrNull(position) ?: ""
+        val name = names.getOrNull(position).orEmpty()
+        holder.b.tvName.text = name
 
-        holder.b.ivBookmark.visibility =
-            if (position == bookmarkedIndex) View.VISIBLE else View.GONE
+        // إظهار علامة المرجعية فقط عند السورة المحفوظة
+        holder.b.ivBookmark.visibility = if (position == bookmarkedIndex) View.VISIBLE else View.GONE
 
         holder.b.root.setOnClickListener {
             val p = holder.bindingAdapterPosition
