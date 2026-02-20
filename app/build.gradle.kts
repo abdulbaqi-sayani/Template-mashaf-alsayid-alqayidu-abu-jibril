@@ -1,6 +1,6 @@
 plugins {
     id("com.android.application")
-    kotlin("android")
+    id("org.jetbrains.kotlin.android")
 }
 
 android {
@@ -14,7 +14,7 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        // ✅ العربية فقط (يقلل الحجم)
+        // العربية فقط لتقليل الحجم
         resConfigs("ar")
     }
 
@@ -29,7 +29,6 @@ android {
         }
 
         release {
-            // ✅ تصغير الحجم في النسخة النهائية
             isMinifyEnabled = true
             isShrinkResources = true
             isDebuggable = false
@@ -41,7 +40,6 @@ android {
         }
     }
 
-    // ✅ متوافق مع AGP 7.0.x (بديل packaging الحديثة)
     packagingOptions {
         exclude("META-INF/DEPENDENCIES")
         exclude("META-INF/LICENSE")
@@ -51,7 +49,6 @@ android {
         exclude("META-INF/*.kotlin_module")
     }
 
-    // ✅ Gradle 7.0.x يحتاج Java 11
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -63,7 +60,7 @@ android {
 }
 
 dependencies {
-    // ✅ يمنع تضارب Kotlin (Duplicate classes)
+    // توحيد Kotlin لمنع Duplicate classes
     implementation(platform("org.jetbrains.kotlin:kotlin-bom:1.8.22"))
 
     implementation("androidx.core:core-ktx:1.13.1")
