@@ -4,7 +4,6 @@ plugins {
 }
 
 android {
-
     namespace = "com.abdulbaqi.mashaf"
     compileSdk = 34
 
@@ -15,7 +14,7 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        // تقليل الموارد للغة العربية فقط
+        // ✅ العربية فقط (يقلل الحجم)
         resConfigs("ar")
     }
 
@@ -24,13 +23,13 @@ android {
     }
 
     buildTypes {
-
         debug {
             isMinifyEnabled = false
             isShrinkResources = false
         }
 
         release {
+            // ✅ تصغير الحجم في النسخة النهائية
             isMinifyEnabled = true
             isShrinkResources = true
             isDebuggable = false
@@ -42,7 +41,7 @@ android {
         }
     }
 
-    // متوافق مع AGP 7.0.x
+    // ✅ متوافق مع AGP 7.0.x (بديل packaging الحديثة)
     packagingOptions {
         exclude("META-INF/DEPENDENCIES")
         exclude("META-INF/LICENSE")
@@ -52,6 +51,7 @@ android {
         exclude("META-INF/*.kotlin_module")
     }
 
+    // ✅ Gradle 7.0.x يحتاج Java 11
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -63,8 +63,7 @@ android {
 }
 
 dependencies {
-
-    // توحيد إصدار Kotlin لمنع Duplicate classes
+    // ✅ يمنع تضارب Kotlin (Duplicate classes)
     implementation(platform("org.jetbrains.kotlin:kotlin-bom:1.8.22"))
 
     implementation("androidx.core:core-ktx:1.13.1")
