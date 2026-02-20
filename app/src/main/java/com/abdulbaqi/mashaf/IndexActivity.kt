@@ -22,21 +22,21 @@ class IndexActivity : AppCompatActivity() {
         b.tvError.visibility = View.GONE
         b.pbLoading.visibility = View.VISIBLE
 
+        b.rvIndex.layoutManager = LinearLayoutManager(this)
+        b.rvIndex.setHasFixedSize(true)
+        b.rvIndex.setItemViewCacheSize(30)
+
+        // زر متابعة القراءة
         b.btnContinue.setOnClickListener {
             if (!BookmarkStore.hasBookmark(this)) return@setOnClickListener
             val s = BookmarkStore.getSurahIndex(this)
             startActivity(
                 Intent(this, MainActivity::class.java)
                     .putExtra("surahIndex", s)
-                    .putExtra("fromIndex", false)
             )
         }
 
-        b.rvIndex.layoutManager = LinearLayoutManager(this)
-        b.rvIndex.setHasFixedSize(true)
-        b.rvIndex.setItemViewCacheSize(24)
-
-        // ✅ تحميل أسماء السور بالخلفية (حل بطء الفهرس)
+        // تحميل أسماء السور بالخلفية
         Thread {
             try {
                 val names = loadSurahNames()
@@ -53,7 +53,6 @@ class IndexActivity : AppCompatActivity() {
                         startActivity(
                             Intent(this, MainActivity::class.java)
                                 .putExtra("surahIndex", index)
-                                .putExtra("fromIndex", true)
                         )
                     }
                     b.pbLoading.visibility = View.GONE
@@ -61,10 +60,7 @@ class IndexActivity : AppCompatActivity() {
 
             } catch (e: JSONException) {
                 runOnUiThread {
-                    showError(
-                        "خطأ في ملف quran.json (تنسيق JSON غير صحيح).\n" +
-                                "تفاصيل: ${e.message}"
-                    )
+                    showError("خطأ في ملف quran.json.\nتفاصيل: ${e.message}")
                 }
             } catch (e: Exception) {
                 runOnUiThread {
