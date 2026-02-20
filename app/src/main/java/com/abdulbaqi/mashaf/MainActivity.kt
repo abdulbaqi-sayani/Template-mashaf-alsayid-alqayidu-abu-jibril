@@ -6,13 +6,9 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
-import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.abdulbaqi.mashaf.databinding.ActivityMainBinding
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.json.JSONArray
 
 class MainActivity : AppCompatActivity() {
@@ -33,7 +29,7 @@ class MainActivity : AppCompatActivity() {
             lm = LinearLayoutManager(this)
             b.rvAyah.layoutManager = lm
             b.rvAyah.setHasFixedSize(true)
-            b.rvAyah.itemViewCacheSize = 24
+            b.rvAyah.setItemViewCacheSize(24)
 
             // Divider مخصص
             val divider = DividerItemDecoration(this, lm.orientation)
@@ -42,20 +38,23 @@ class MainActivity : AppCompatActivity() {
 
             val amiri = ResourcesCompat.getFont(this, R.font.amiri_quran)
 
-            // ✅ تحميل JSON وبناء القائمة في الخلفية (حل بطء فتح الصفحة)
-            lifecycleScope.launch {
-                val builtItems = withContext(Dispatchers.IO) {
-                    buildItemsFromJson()
+            // ✅ تحميل وبناء القائمة بالخلفية (حل بطء الفتح)
+            Thread {
+                try {
+                    val built = buildItemsFromJson()
+                    runOnUiThread {
+                        items = built
+                        val adapter = QuranAdapter(items, amiri)
+                        b.rvAyah.adapter = adapter
+                        handleScrollAfterLoad()
+                    }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        Toast.makeText(this, "خطأ: ${e.message}", Toast.LENGTH_LONG).show()
+                        finish()
+                    }
                 }
-
-                items = builtItems
-
-                val adapter = QuranAdapter(items, amiri)
-                b.rvAyah.adapter = adapter
-
-                // ✅ بعد تحميل البيانات: نفّذ التمرير المطلوب
-                handleScrollAfterLoad()
-            }
+            }.start()
 
         } catch (e: Exception) {
             Toast.makeText(this, "خطأ: ${e.message}", Toast.LENGTH_LONG).show()
@@ -67,7 +66,6 @@ class MainActivity : AppCompatActivity() {
         val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
         val surahs = JSONArray(jsonText)
 
-        // تقدير سعة مبدئية لتقليل إعادة التخصيص
         val out = ArrayList<QItem>(12000)
 
         for (s in 0 until surahs.length()) {
@@ -90,7 +88,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-
         return out
     }
 
@@ -128,7 +125,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-
         val adapter = b.rvAyah.adapter as? QuranAdapter ?: return
         val pos = lm.findFirstVisibleItemPosition()
         if (pos < 0) return
