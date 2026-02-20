@@ -1,13 +1,11 @@
-buildscript {
-    ext {
-        set("kotlin_version", "1.8.22")
-    }
+plugins {
+    id("com.android.application") version "7.0.4" apply false
+    id("org.jetbrains.kotlin.android") version "1.8.22" apply false
+}
+
+allprojects {
     repositories {
         google()
         mavenCentral()
-    }
-    dependencies {
-        classpath("com.android.tools.build:gradle:7.0.4")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.22")
     }
 }
