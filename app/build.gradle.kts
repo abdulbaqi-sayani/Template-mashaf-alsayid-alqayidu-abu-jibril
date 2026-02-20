@@ -4,6 +4,7 @@ plugins {
 }
 
 android {
+
     namespace = "com.abdulbaqi.mashaf"
     compileSdk = 34
 
@@ -14,7 +15,7 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        // ✅ العربية فقط لتقليل الحجم (متوافقة مع الإصدارات القديمة)
+        // تقليل الموارد للغة العربية فقط
         resConfigs("ar")
     }
 
@@ -23,13 +24,13 @@ android {
     }
 
     buildTypes {
+
         debug {
             isMinifyEnabled = false
             isShrinkResources = false
         }
 
         release {
-            // ✅ تصغير الحجم
             isMinifyEnabled = true
             isShrinkResources = true
             isDebuggable = false
@@ -41,7 +42,7 @@ android {
         }
     }
 
-    // ✅ بديل packaging المتوافق مع AGP القديم
+    // متوافق مع AGP 7.0.x
     packagingOptions {
         exclude("META-INF/DEPENDENCIES")
         exclude("META-INF/LICENSE")
@@ -51,7 +52,6 @@ android {
         exclude("META-INF/*.kotlin_module")
     }
 
-    // ✅ متوافق مع Gradle 7.0.2 + JDK 11
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -63,6 +63,10 @@ android {
 }
 
 dependencies {
+
+    // توحيد إصدار Kotlin لمنع Duplicate classes
+    implementation(platform("org.jetbrains.kotlin:kotlin-bom:1.8.22"))
+
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
