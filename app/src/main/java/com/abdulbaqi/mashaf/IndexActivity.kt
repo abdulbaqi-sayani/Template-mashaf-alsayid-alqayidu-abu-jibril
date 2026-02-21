@@ -1,77 +1,30 @@
-package com.abdulbaqi.mashaf
+private fun loadDataAsync() {
+    b.pbLoading.visibility = View.VISIBLE
+    
+    lifecycleScope.launch(Dispatchers.Default) {
+        try {
+            // 1. تعطيل قراءة الـ JSON مؤقتاً
+            /* val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
+            val surahs = JSONArray(jsonText)
+            */
 
-import android.content.Intent
-import android.os.Bundle
-import android.view.View
-import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
-import com.abdulbaqi.mashaf.databinding.ActivityIndexBinding
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONArray
-
-class IndexActivity : AppCompatActivity() {
-
-    private lateinit var b: ActivityIndexBinding
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        b = ActivityIndexBinding.inflate(layoutInflater)
-        setContentView(b.root)
-b.rvIndex.apply {
-    layoutManager = LinearLayoutManager(this@IndexActivity)
-    setHasFixedSize(true)
-    setItemViewCacheSize(20) // كاش إضافي لمنع إعادة الرسم المتكرر
-    isDrawingCacheEnabled = true
-    drawingCacheQuality = View.DRAWING_CACHE_QUALITY_HIGH
-}
-        // إعداد القائمة
-        b.rvIndex.layoutManager = LinearLayoutManager(this)
-        b.rvIndex.setHasFixedSize(true)
-
-        // زر متابعة القراءة
-        b.btnContinue.setOnClickListener {
-            if (BookmarkStore.hasBookmark(this)) {
-                startActivity(Intent(this, MainActivity::class.java))
+            // 2. إنشاء قائمة وهمية سريعة جداً
+            val names = ArrayList<String>(114)
+            for (i in 1..114) {
+                names.add("سورة تجريبية رقم $i")
             }
-        }
 
-        // استدعاء التحميل في الخلفية
-        loadDataAsync()
-    }
-
-    private fun loadDataAsync() {
-        b.pbLoading.visibility = View.VISIBLE
-        
-        // التحميل في خلفية التطبيق (Worker Thread)
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
-                val surahs = JSONArray(jsonText)
-                val names = ArrayList<String>(114)
-
-                for (i in 0 until surahs.length()) {
-                    names.add(surahs.getJSONObject(i).getString("name"))
+            // 3. التحديث على الواجهة
+            withContext(Dispatchers.Main) {
+                b.pbLoading.visibility = View.GONE
+                b.rvIndex.adapter = SurahAdapter(names, -1) { index ->
+                    // لا تفعل شيئاً عند الضغط الآن، نحن نختبر السرعة فقط
                 }
-
-                // العودة للواجهة الرئيسية لعرض الأسماء
-                withContext(Dispatchers.Main) {
-                    b.pbLoading.visibility = View.GONE
-                    b.rvIndex.adapter = SurahAdapter(names, -1) { index ->
-                        val intent = Intent(this@IndexActivity, MainActivity::class.java)
-                        intent.putExtra("surahIndex", index)
-                        intent.putExtra("fromIndex", true)
-                        startActivity(intent)
-                    }
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    b.pbLoading.visibility = View.GONE
-                    b.tvError.visibility = View.VISIBLE
-                    b.tvError.text = "خطأ في تحميل البيانات"
-                }
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                b.pbLoading.visibility = View.GONE
+                b.tvError.text = "خطأ في الاختبار"
             }
         }
     }
