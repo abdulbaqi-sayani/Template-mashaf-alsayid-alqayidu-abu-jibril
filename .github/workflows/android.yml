@@ -1,0 +1,79 @@
+name: Android CI
+
+on:
+  push:
+    branches: [ develop, main ]
+  pull_request:
+    branches: [ develop, main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      # ✅ فحص كل صور res (خصوصاً mipmap) لاكتشاف ملف تالف يسبب انهيار AAPT2
+      - name: Validate PNG/WEBP resources (find broken file)
+        run: |
+          set -e
+          echo "===== List mipmap icons ====="
+          find app/src/main/res -type f \( -name "*.png" -o -name "*.webp" \) | sort | head -n 300
+
+          echo "===== Install Pillow ====="
+          python3 -m pip install --upgrade pip >/dev/null
+          python3 -m pip install pillow >/dev/null
+
+          echo "===== Validate images by decoding ====="
+          python3 - <<'PY'
+          import os, sys
+          from PIL import Image
+
+          root = "app/src/main/res"
+          bad = []
+          checked = 0
+
+          for dirpath, _, filenames in os.walk(root):
+              for fn in filenames:
+                  if not (fn.lower().endswith(".png") or fn.lower().endswith(".webp")):
+                      continue
+                  path = os.path.join(dirpath, fn)
+                  checked += 1
+                  try:
+                      with Image.open(path) as im:
+                          im.load()
+                          w, h = im.size
+                          # تحذير إذا الأيقونة ضخمة جدًا (قد تسبب مشاكل AAPT2)
+                          if w > 1024 or h > 1024:
+                              print(f"⚠️  Large image: {path} => {w}x{h}")
+                  except Exception as e:
+                      bad.append((path, str(e)))
+
+          print(f"Checked images: {checked}")
+          if bad:
+              print("❌ Broken/invalid images found:")
+              for p, e in bad:
+                  print(f"- {p}\n  Error: {e}")
+              sys.exit(1)
+          else:
+              print("✅ All images decoded successfully.")
+          PY
+
+      - name: Build Release APK (with stacktrace)
+        run: ./gradlew --no-daemon clean assembleRelease --stacktrace
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mashaf-release-apk
+          path: app/build/outputs/apk/release/*.apk
