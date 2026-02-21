@@ -1,54 +1,27 @@
-package com.abdulbaqi.mashaf
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
 
-import android.graphics.Color
-import android.os.Bundle
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.ForegroundColorSpan
-import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.res.ResourcesCompat
+    <TextView
+        android:id="@+id/textViewQuran"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="بسم الله الرحمن الرحيم ۝ الحمد لله رب العالمين"
+        android:textSize="28sp"
+        android:textColor="@android:color/black"
+        android:gravity="center"
+        android:padding="24dp"
+        android:lineSpacingExtra="8dp"
+        android:textDirection="rtl"
+        android:layout_margin="16dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
-class MainActivity : AppCompatActivity() {
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        val textView = findViewById<TextView>(R.id.textViewQuran)
-
-        // تحميل الخط من res/font
-        val typeface = ResourcesCompat.getFont(this, R.font.amiriquran)
-        textView.typeface = typeface
-
-        val text = "بسم الله الرحمن الرحيم ۝ الحمد لله رب العالمين"
-
-        val spannable = SpannableString(text)
-
-        // تلوين لفظ الجلالة بالأخضر
-        val wordAllah = "الله"
-        val startAllah = text.indexOf(wordAllah)
-        if (startAllah >= 0) {
-            spannable.setSpan(
-                ForegroundColorSpan(Color.parseColor("#008000")),
-                startAllah,
-                startAllah + wordAllah.length,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-
-        // تلوين علامة الآية بالأحمر
-        val ayahSymbol = "۝"
-        val startAyah = text.indexOf(ayahSymbol)
-        if (startAyah >= 0) {
-            spannable.setSpan(
-                ForegroundColorSpan(Color.RED),
-                startAyah,
-                startAyah + ayahSymbol.length,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-
-        textView.text = spannable
-    }
-}
+</androidx.constraintlayout.widget.ConstraintLayout>
