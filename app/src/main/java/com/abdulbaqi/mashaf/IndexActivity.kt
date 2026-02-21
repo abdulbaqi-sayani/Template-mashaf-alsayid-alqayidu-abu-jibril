@@ -20,7 +20,13 @@ class IndexActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         b = ActivityIndexBinding.inflate(layoutInflater)
         setContentView(b.root)
-
+b.rvIndex.apply {
+    layoutManager = LinearLayoutManager(this@IndexActivity)
+    setHasFixedSize(true)
+    setItemViewCacheSize(20) // كاش إضافي لمنع إعادة الرسم المتكرر
+    isDrawingCacheEnabled = true
+    drawingCacheQuality = View.DRAWING_CACHE_QUALITY_HIGH
+}
         // إعداد القائمة
         b.rvIndex.layoutManager = LinearLayoutManager(this)
         b.rvIndex.setHasFixedSize(true)
