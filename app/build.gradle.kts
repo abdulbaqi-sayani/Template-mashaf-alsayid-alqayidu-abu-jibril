@@ -1,67 +1,69 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    kotlin("android")
 }
 
 android {
     namespace = "com.abdulbaqi.mashaf"
-    compileSdk = 34
+    compileSdk = 31
 
     defaultConfig {
         applicationId = "com.abdulbaqi.mashaf"
         minSdk = 21
-        targetSdk = 34
+        targetSdk = 31
         versionCode = 1
         versionName = "1.0"
+    }
 
-        // تقليل الحجم: العربية فقط
-        resConfigs("ar")
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+        debug {
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
     }
 
     buildFeatures {
         viewBinding = true
     }
 
-    buildTypes {
-        debug {
-            isMinifyEnabled = false
-            isShrinkResources = false
-        }
-
-        release {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            isDebuggable = false
-
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-    }
-
-    // متوافق مع AGP 7.0.x
-    packagingOptions {
-        exclude("META-INF/DEPENDENCIES")
-        exclude("META-INF/LICENSE")
-        exclude("META-INF/LICENSE.txt")
-        exclude("META-INF/NOTICE")
-        exclude("META-INF/NOTICE.txt")
-        exclude("META-INF/*.kotlin_module")
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-
     kotlinOptions {
         jvmTarget = "11"
+    }
+
+    // (اختياري) لتجنب مشاكل META-INF في بعض المكتبات
+    packagingOptions {
+        resources.excludes.addAll(
+            setOf(
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt",
+                "META-INF/*.kotlin_module"
+            )
+        )
     }
 }
 
 dependencies {
     implementation("androidx.core:core-ktx:1.7.0")
-    implementation("androidx.appcompat:appcompat:1.4.2")
+    implementation("androidx.appcompat:appcompat:1.4.1")
+    implementation("com.google.android.material:material:1.5.0")
+
     implementation("androidx.recyclerview:recyclerview:1.2.1")
+
+    // ✅ هذا هو المهم لحل layout_constraint...
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 }
