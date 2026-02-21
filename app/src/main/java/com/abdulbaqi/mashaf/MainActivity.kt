@@ -1,74 +1,54 @@
 package com.abdulbaqi.mashaf
 
-import android.content.pm.ActivityInfo
+import android.graphics.Color
 import android.os.Bundle
-import android.widget.Toast
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
-import androidx.recyclerview.widget.DividerItemDecoration
-import androidx.recyclerview.widget.LinearLayoutManager
-import com.abdulbaqi.mashaf.databinding.ActivityMainBinding
-import org.json.JSONArray
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var b: ActivityMainBinding
-    private lateinit var lm: LinearLayoutManager
-    private lateinit var items: ArrayList<QItem>
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
 
-        try {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        val textView = findViewById<TextView>(R.id.textViewQuran)
 
-            b = ActivityMainBinding.inflate(layoutInflater)
-            setContentView(b.root)
+        // تحميل الخط من res/font
+        val typeface = ResourcesCompat.getFont(this, R.font.amiriquran)
+        textView.typeface = typeface
 
-            val jsonText = assets.open("quran.json").bufferedReader().use { it.readText() }
-            val surahs = JSONArray(jsonText)
+        val text = "بسم الله الرحمن الرحيم ۝ الحمد لله رب العالمين"
 
-            items = ArrayList()
+        val spannable = SpannableString(text)
 
-            for (s in 0 until surahs.length()) {
-                val surahObj = surahs.getJSONObject(s)
-                val name = surahObj.getString("name")
-
-                items.add(QItem.SurahTitle(name = name, surahIndex = s))
-
-                val ayahsArray = surahObj.getJSONArray("ayahs")
-                for (a in 0 until ayahsArray.length()) {
-                    val raw = ayahsArray.optString(a, "")
-                    val text = raw
-                        .replace("\r", " ")
-                        .replace("\n", " ")
-                        .replace(Regex("\\s+"), " ")
-                        .trim()
-
-                    if (text.isNotBlank()) {
-                        items.add(QItem.Ayah(text = text, surahIndex = s, ayahIndex = a))
-                    }
-                }
-            }
-
-            val amiri = ResourcesCompat.getFont(this, R.font.amiri_quran)
-
-            lm = LinearLayoutManager(this)
-            b.rvAyah.layoutManager = lm
-            b.rvAyah.setHasFixedSize(true)
-
-            val adapter = QuranAdapter(items, amiri)
-            b.rvAyah.adapter = adapter
-
-            val divider = DividerItemDecoration(this, lm.orientation)
-            ContextCompat.getDrawable(this, R.drawable.divider_ayah)
-                ?.let { divider.setDrawable(it) }
-            b.rvAyah.addItemDecoration(divider)
-
-        } catch (e: Exception) {
-            Toast.makeText(this, "خطأ: ${e.message}", Toast.LENGTH_LONG).show()
-            finish()
+        // تلوين لفظ الجلالة بالأخضر
+        val wordAllah = "الله"
+        val startAllah = text.indexOf(wordAllah)
+        if (startAllah >= 0) {
+            spannable.setSpan(
+                ForegroundColorSpan(Color.parseColor("#008000")),
+                startAllah,
+                startAllah + wordAllah.length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
         }
+
+        // تلوين علامة الآية بالأحمر
+        val ayahSymbol = "۝"
+        val startAyah = text.indexOf(ayahSymbol)
+        if (startAyah >= 0) {
+            spannable.setSpan(
+                ForegroundColorSpan(Color.RED),
+                startAyah,
+                startAyah + ayahSymbol.length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+
+        textView.text = spannable
     }
 }
