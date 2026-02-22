@@ -55,20 +55,15 @@ class QuranAdapter(
             val cleanText = removeTrailingParenthesesNumber(rawText)
             val surahName = findSurahName(item.surahIndex)
 
-            // فحص نوع السطر: هل هو بسملة، صلوات، أم آية عادية؟
             val isBasmala = containsBasmala(cleanText)
             val isSalawat = isSalawatLine(cleanText)
             val isKhatima = isKhatimaSurah(surahName) || isDuaKhatmQuranSurah(surahName)
 
             when {
-                // 1. توسيط البسملة (ما عدا الفاتحة تحذف رقمها) والصلوات والكلمة الختامية
+                // حالة البسملة، الصلوات، والختامية -> توسيط + حذف أرقام (إلا بسملة الفاتحة)
                 isBasmala || isSalawat || isKhatima -> {
                     b.tvAyah.gravity = Gravity.CENTER
-                    // إذا كانت بسملة وليست في الفاتحة (index 0)، نعرضها بدون رقم
-                    if (isBasmala && item.surahIndex != 0) {
-                        b.tvAyah.text = applyAllColors(cleanText, null)
-                    } else if (isBasmala && item.surahIndex == 0) {
-                        // الفاتحة: بسملة بوسط السطر مع رقمها
+                    if (isBasmala && item.surahIndex == 0) {
                         val ornate = formatOrnateAyahNumber(1)
                         b.tvAyah.text = applyAllColors("$cleanText $ornate", ornate)
                     } else {
@@ -76,28 +71,26 @@ class QuranAdapter(
                     }
                 }
                 
-                // 2. آيات القرآن العادية: محاذاة ضبط (Justify)
+                // آيات القرآن العادية -> محاذاة ضبط (FILL) + ترقيم يبدأ بعد البسملة
                 else -> {
-                    b.tvAyah.gravity = Gravity.FILL_HORIZONTAL // لعمل الضبط (Justify)
+                    b.tvAyah.gravity = Gravity.FILL_HORIZONTAL
                     
                     val basmalaAtStart = hasBasmalaAsFirstAyah(item.surahIndex)
-                    val displayNumber = if (item.surahIndex != 0 && basmalaAtStart) {
-                        item.ayahIndex // الآية التي تلي البسملة تصبح رقم 1
-                    } else {
-                        item.ayahIndex + 1
-                    }
+                    // إذا بدأت السورة ببسملة (index 0)، الآية التالية (index 1) تأخذ رقم 1
+                    val displayNumber = if (item.surahIndex != 0 && basmalaAtStart) item.ayahIndex else item.ayahIndex + 1
 
-                    val ornate = formatOrnateAyahNumber(displayNumber)
-                    b.tvAyah.text = applyAllColors("$RTL_MARK$cleanText  $ornate", ornate)
+                    if (displayNumber > 0) {
+                        val ornate = formatOrnateAyahNumber(displayNumber)
+                        b.tvAyah.text = applyAllColors("$RTL_MARK$cleanText  $ornate", ornate)
+                    } else {
+                        b.tvAyah.text = applyAllColors("$RTL_MARK$cleanText", null)
+                    }
                 }
             }
         }
 
-        private fun findSurahName(surahIndex: Int): String {
-            return (items.firstOrNull { it is QItem.SurahTitle && it.surahIndex == surahIndex } as? QItem.SurahTitle)?.name ?: ""
-        }
-
-        private fun isDuaKhatmQuranSurah(name: String): Boolean = normalize(name).let { it.contains("دعاء") || it.contains("ختم") }
+        private fun findSurahName(surahIndex: Int): String = (items.firstOrNull { it is QItem.SurahTitle && it.surahIndex == surahIndex } as? QItem.SurahTitle)?.name ?: ""
+        private fun isDuaKhatmQuranSurah(name: String): Boolean = normalize(name).contains("دعاء") || normalize(name).contains("ختم")
         private fun isKhatimaSurah(name: String): Boolean = normalize(name).let { it.contains("كلمه") || it.contains("خاتمه") || it.contains("ختام") }
         private fun isSalawatLine(text: String): Boolean = normalize(text).let { it.contains("اللهم") && it.contains("صل") && it.contains("محمد") }
         private fun containsBasmala(text: String): Boolean = normalize(text).contains("بسم الله الرحمن الرحيم")
@@ -112,7 +105,6 @@ class QuranAdapter(
             val green = ContextCompat.getColor(b.root.context, android.R.color.holo_green_dark)
             val red = ContextCompat.getColor(b.root.context, android.R.color.holo_red_dark)
             
-            // تلوين لفظ الجلالة والرموز
             Regex("(?<![\\u0600-\\u06FF])([ٱا]$DIACRITICS*ل$DIACRITICS*ل$DIACRITICS*ه$DIACRITICS*)(?![\\u0600-\\u06FF])")
                 .findAll(text).forEach { ss.setSpan(ForegroundColorSpan(green), it.range.first, it.range.last + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
             
