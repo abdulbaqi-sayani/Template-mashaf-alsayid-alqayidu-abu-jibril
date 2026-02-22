@@ -4,6 +4,7 @@ import android.graphics.Typeface
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
@@ -28,7 +29,6 @@ class QuranAdapter(
         private const val RTL_MARK = "\u200F" 
     }
 
-    // هذه هي الدالة التي كانت مفقودة وتسببت في الخطأ
     fun getItemAt(pos: Int): QItem = items[pos]
 
     override fun getItemViewType(position: Int): Int {
@@ -66,23 +66,42 @@ class QuranAdapter(
 
         fun bind(item: QItem.Ayah) {
             b.tvAyah.typeface = amiri
-
             val cleanText = removeTrailingParenthesesNumber(item.text)
             val surahName = findSurahName(item.surahIndex)
 
-            // إخفاء الرقم للبسملة والدعاء
+            // 1. التعامل مع "الكلمة الختامية" و "دعاء الختم" (حذف الرقم + توسيط)
+            if (isKhatimaSurah(surahName) || isDuaKhatmQuranSurah(surahName)) {
+                b.tvAyah.gravity = Gravity.CENTER
+                b.tvAyah.text = applyAllColors("$cleanText", ornateNumberPart = null)
+                return
+            } else {
+                // إعادة المحاذاة لليمين لبقية السور
+                b.tvAyah.gravity = Gravity.RIGHT
+            }
+
+            // 2. التعامل مع السطور التي لا ترقم (البسملة والصلوات)
             if (isNoNumberLine(item.surahIndex, surahName, cleanText)) {
                 b.tvAyah.text = applyAllColors("$RTL_MARK$cleanText", ornateNumberPart = null)
                 return
             }
 
+            // 3. منطق ترقيم الآيات
+            // إذا كانت السورة ليست الفاتحة وبدأت ببسملة، فالآية رقم 1 هي التي تلي البسملة
             val basmalaFirst = hasBasmalaAsFirstAyah(item.surahIndex)
-            val displayNumber = if (item.surahIndex != 0 && basmalaFirst) item.ayahIndex else item.ayahIndex + 1
+            val displayNumber = if (item.surahIndex != 0 && basmalaFirst) {
+                item.ayahIndex // البسملة هنا هي index 0، الآية التالية index 1 تأخذ رقم 1
+            } else {
+                item.ayahIndex + 1
+            }
 
-            val ornate = formatOrnateAyahNumber(displayNumber)
-            val finalText = "$RTL_MARK$cleanText  $ornate"
-
-            b.tvAyah.text = applyAllColors(finalText, ornateNumberPart = ornate)
+            // إذا كان الرقم صفر (حالة البسملة في غير الفاتحة) لا نعرض رقماً
+            if (displayNumber <= 0) {
+                b.tvAyah.text = applyAllColors("$RTL_MARK$cleanText", ornateNumberPart = null)
+            } else {
+                val ornate = formatOrnateAyahNumber(displayNumber)
+                val finalText = "$RTL_MARK$cleanText  $ornate"
+                b.tvAyah.text = applyAllColors(finalText, ornateNumberPart = ornate)
+            }
         }
 
         private fun findSurahName(surahIndex: Int): String {
@@ -91,8 +110,6 @@ class QuranAdapter(
         }
 
         private fun isNoNumberLine(surahIndex: Int, surahName: String, text: String): Boolean {
-            if (isDuaKhatmQuranSurah(surahName)) return true
-            if (isKhatimaSurah(surahName)) return true
             if (isSalawatLine(text)) return true
             if (isBasmalaLine(surahIndex, text)) return true
             return false
@@ -105,7 +122,7 @@ class QuranAdapter(
 
         private fun isKhatimaSurah(name: String): Boolean {
             val n = normalizeArabicForMatch(name)
-            return n.contains("كلمة") || n.contains("خاتمة") || n.contains("ختامية")
+            return n.contains("كلمه") || n.contains("خاتمه") || n.contains("ختاميه") || n.contains("ختام")
         }
 
         private fun isSalawatLine(text: String): Boolean {
@@ -114,7 +131,7 @@ class QuranAdapter(
         }
 
         private fun isBasmalaLine(surahIndex: Int, text: String): Boolean {
-            if (surahIndex == 0) return false
+            if (surahIndex == 0) return false // سورة الفاتحة دائماً ترقم البسملة
             return containsBasmala(text)
         }
 
@@ -172,14 +189,9 @@ class QuranAdapter(
         private fun normalizeArabicForMatch(text: String): String {
             val diacriticsRegex = Regex(DIACRITICS)
             return text.replace(diacriticsRegex, "")
-                .replace("ٱ", "ا")
-                .replace("أ", "ا")
-                .replace("إ", "ا")
-                .replace("آ", "ا")
-                .replace("ى", "ي")
-                .replace("ـ", "")
-                .replace("ة", "ه")
-                .trim()
+                .replace("ٱ", "ا").replace("أ", "ا").replace("إ", "ا")
+                .replace("آ", "ا").replace("ى", "ي").replace("ـ", "")
+                .replace("ة", "ه").trim()
         }
 
         private fun removeTrailingParenthesesNumber(text: String): String {
