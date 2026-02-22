@@ -20,31 +20,18 @@ class QuranAdapter(
     companion object {
         private const val TYPE_TITLE = 0
         private const val TYPE_AYAH = 1
-
         private const val DIACRITICS = "[\\u0610-\\u061A\\u064B-\\u065F\\u0670\\u06D6-\\u06EDٰ]"
-        private val ALLAH_PATTERN = Regex(
-            "(?<![\\u0600-\\u06FF])([ٱا]$DIACRITICS*ل$DIACRITICS*ل$DIACRITICS*ه$DIACRITICS*)(?![\\u0600-\\u06FF])"
-        )
-        private val TRAILING_PARENS_NUMBER = Regex("""\s*\(\s*[\d٠١٢٣٤٥٦٧٨٩]+\s*\)\s*$""")
         private const val RTL_MARK = "\u200F" 
     }
 
     fun getItemAt(pos: Int): QItem = items[pos]
 
-    override fun getItemViewType(position: Int): Int {
-        return when (items[position]) {
-            is QItem.SurahTitle -> TYPE_TITLE
-            is QItem.Ayah -> TYPE_AYAH
-        }
-    }
+    override fun getItemViewType(position: Int): Int = if (items[position] is QItem.SurahTitle) TYPE_TITLE else TYPE_AYAH
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
-        return if (viewType == TYPE_TITLE) {
-            TitleVH(ItemSurahTitleBinding.inflate(inflater, parent, false))
-        } else {
-            AyahVH(ItemAyahBinding.inflate(inflater, parent, false))
-        }
+        return if (viewType == TYPE_TITLE) TitleVH(ItemSurahTitleBinding.inflate(inflater, parent, false))
+        else AyahVH(ItemAyahBinding.inflate(inflater, parent, false))
     }
 
     override fun getItemCount(): Int = items.size
@@ -57,153 +44,94 @@ class QuranAdapter(
     }
 
     private class TitleVH(private val b: ItemSurahTitleBinding) : RecyclerView.ViewHolder(b.root) {
-        fun bind(item: QItem.SurahTitle) {
-            b.tvSurahName.text = item.name
-        }
+        fun bind(item: QItem.SurahTitle) { b.tvSurahName.text = item.name }
     }
 
     private inner class AyahVH(private val b: ItemAyahBinding) : RecyclerView.ViewHolder(b.root) {
 
         fun bind(item: QItem.Ayah) {
             b.tvAyah.typeface = amiri
-            val cleanText = removeTrailingParenthesesNumber(item.text)
+            val rawText = item.text.trim()
+            val cleanText = removeTrailingParenthesesNumber(rawText)
             val surahName = findSurahName(item.surahIndex)
 
-            // 1. التعامل مع "الكلمة الختامية" و "دعاء الختم" (حذف الرقم + توسيط)
-            if (isKhatimaSurah(surahName) || isDuaKhatmQuranSurah(surahName)) {
-                b.tvAyah.gravity = Gravity.CENTER
-                b.tvAyah.text = applyAllColors("$cleanText", ornateNumberPart = null)
-                return
-            } else {
-                // إعادة المحاذاة لليمين لبقية السور
-                b.tvAyah.gravity = Gravity.RIGHT
-            }
+            // فحص نوع السطر: هل هو بسملة، صلوات، أم آية عادية؟
+            val isBasmala = containsBasmala(cleanText)
+            val isSalawat = isSalawatLine(cleanText)
+            val isKhatima = isKhatimaSurah(surahName) || isDuaKhatmQuranSurah(surahName)
 
-            // 2. التعامل مع السطور التي لا ترقم (البسملة والصلوات)
-            if (isNoNumberLine(item.surahIndex, surahName, cleanText)) {
-                b.tvAyah.text = applyAllColors("$RTL_MARK$cleanText", ornateNumberPart = null)
-                return
-            }
+            when {
+                // 1. توسيط البسملة (ما عدا الفاتحة تحذف رقمها) والصلوات والكلمة الختامية
+                isBasmala || isSalawat || isKhatima -> {
+                    b.tvAyah.gravity = Gravity.CENTER
+                    // إذا كانت بسملة وليست في الفاتحة (index 0)، نعرضها بدون رقم
+                    if (isBasmala && item.surahIndex != 0) {
+                        b.tvAyah.text = applyAllColors(cleanText, null)
+                    } else if (isBasmala && item.surahIndex == 0) {
+                        // الفاتحة: بسملة بوسط السطر مع رقمها
+                        val ornate = formatOrnateAyahNumber(1)
+                        b.tvAyah.text = applyAllColors("$cleanText $ornate", ornate)
+                    } else {
+                        b.tvAyah.text = applyAllColors(cleanText, null)
+                    }
+                }
+                
+                // 2. آيات القرآن العادية: محاذاة ضبط (Justify)
+                else -> {
+                    b.tvAyah.gravity = Gravity.FILL_HORIZONTAL // لعمل الضبط (Justify)
+                    
+                    val basmalaAtStart = hasBasmalaAsFirstAyah(item.surahIndex)
+                    val displayNumber = if (item.surahIndex != 0 && basmalaAtStart) {
+                        item.ayahIndex // الآية التي تلي البسملة تصبح رقم 1
+                    } else {
+                        item.ayahIndex + 1
+                    }
 
-            // 3. منطق ترقيم الآيات
-            // إذا كانت السورة ليست الفاتحة وبدأت ببسملة، فالآية رقم 1 هي التي تلي البسملة
-            val basmalaFirst = hasBasmalaAsFirstAyah(item.surahIndex)
-            val displayNumber = if (item.surahIndex != 0 && basmalaFirst) {
-                item.ayahIndex // البسملة هنا هي index 0، الآية التالية index 1 تأخذ رقم 1
-            } else {
-                item.ayahIndex + 1
-            }
-
-            // إذا كان الرقم صفر (حالة البسملة في غير الفاتحة) لا نعرض رقماً
-            if (displayNumber <= 0) {
-                b.tvAyah.text = applyAllColors("$RTL_MARK$cleanText", ornateNumberPart = null)
-            } else {
-                val ornate = formatOrnateAyahNumber(displayNumber)
-                val finalText = "$RTL_MARK$cleanText  $ornate"
-                b.tvAyah.text = applyAllColors(finalText, ornateNumberPart = ornate)
+                    val ornate = formatOrnateAyahNumber(displayNumber)
+                    b.tvAyah.text = applyAllColors("$RTL_MARK$cleanText  $ornate", ornate)
+                }
             }
         }
 
         private fun findSurahName(surahIndex: Int): String {
-            val title = items.firstOrNull { it is QItem.SurahTitle && it.surahIndex == surahIndex } as? QItem.SurahTitle
-            return title?.name ?: ""
+            return (items.firstOrNull { it is QItem.SurahTitle && it.surahIndex == surahIndex } as? QItem.SurahTitle)?.name ?: ""
         }
 
-        private fun isNoNumberLine(surahIndex: Int, surahName: String, text: String): Boolean {
-            if (isSalawatLine(text)) return true
-            if (isBasmalaLine(surahIndex, text)) return true
-            return false
-        }
-
-        private fun isDuaKhatmQuranSurah(name: String): Boolean {
-            val n = normalizeArabicForMatch(name)
-            return n.contains("دعاء") || n.contains("ختم")
-        }
-
-        private fun isKhatimaSurah(name: String): Boolean {
-            val n = normalizeArabicForMatch(name)
-            return n.contains("كلمه") || n.contains("خاتمه") || n.contains("ختاميه") || n.contains("ختام")
-        }
-
-        private fun isSalawatLine(text: String): Boolean {
-            val n = normalizeArabicForMatch(text)
-            return n.contains("اللهم") && n.contains("صل") && n.contains("محمد")
-        }
-
-        private fun isBasmalaLine(surahIndex: Int, text: String): Boolean {
-            if (surahIndex == 0) return false // سورة الفاتحة دائماً ترقم البسملة
-            return containsBasmala(text)
-        }
+        private fun isDuaKhatmQuranSurah(name: String): Boolean = normalize(name).let { it.contains("دعاء") || it.contains("ختم") }
+        private fun isKhatimaSurah(name: String): Boolean = normalize(name).let { it.contains("كلمه") || it.contains("خاتمه") || it.contains("ختام") }
+        private fun isSalawatLine(text: String): Boolean = normalize(text).let { it.contains("اللهم") && it.contains("صل") && it.contains("محمد") }
+        private fun containsBasmala(text: String): Boolean = normalize(text).contains("بسم الله الرحمن الرحيم")
 
         private fun hasBasmalaAsFirstAyah(surahIndex: Int): Boolean {
-            val firstAyah = items.firstOrNull {
-                it is QItem.Ayah && it.surahIndex == surahIndex && it.ayahIndex == 0
-            } as? QItem.Ayah ?: return false
-
-            val txt = removeTrailingParenthesesNumber(firstAyah.text)
-            return containsBasmala(txt)
-        }
-
-        private fun containsBasmala(text: String): Boolean {
-            val n = normalizeArabicForMatch(text)
-            return n.contains("بسم الله الرحمن الرحيم")
+            val first = items.firstOrNull { it is QItem.Ayah && it.surahIndex == surahIndex && it.ayahIndex == 0 } as? QItem.Ayah ?: return false
+            return containsBasmala(removeTrailingParenthesesNumber(first.text))
         }
 
         private fun applyAllColors(text: String, ornateNumberPart: String?): SpannableString {
             val ss = SpannableString(text)
             val green = ContextCompat.getColor(b.root.context, android.R.color.holo_green_dark)
             val red = ContextCompat.getColor(b.root.context, android.R.color.holo_red_dark)
-
-            val deco = setOf('❁', '✿', '❀')
-            for (i in text.indices) {
-                if (deco.contains(text[i])) {
-                    ss.setSpan(ForegroundColorSpan(green), i, i + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                }
+            
+            // تلوين لفظ الجلالة والرموز
+            Regex("(?<![\\u0600-\\u06FF])([ٱا]$DIACRITICS*ل$DIACRITICS*ل$DIACRITICS*ه$DIACRITICS*)(?![\\u0600-\\u06FF])")
+                .findAll(text).forEach { ss.setSpan(ForegroundColorSpan(green), it.range.first, it.range.last + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
+            
+            setOf('❁', '✿', '❀').forEach { char ->
+                text.forEachIndexed { i, c -> if (c == char) ss.setSpan(ForegroundColorSpan(green), i, i + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
             }
-
-            for (m in ALLAH_PATTERN.findAll(text)) {
-                ss.setSpan(ForegroundColorSpan(green), m.range.first, m.range.last + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
-
-            colorAllOccurrences(ss, text, "إسرائيل", red)
-            colorAllOccurrences(ss, text, "اسرائيل", red)
-            colorAllOccurrences(ss, text, "اليهود", red)
 
             if (!ornateNumberPart.isNullOrEmpty()) {
                 val start = text.lastIndexOf(ornateNumberPart)
-                if (start >= 0) {
-                    ss.setSpan(ForegroundColorSpan(red), start, start + ornateNumberPart.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                }
+                if (start >= 0) ss.setSpan(ForegroundColorSpan(red), start, start + ornateNumberPart.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
             return ss
         }
 
-        private fun colorAllOccurrences(ss: SpannableString, text: String, needle: String, color: Int) {
-            var idx = text.indexOf(needle)
-            while (idx >= 0) {
-                ss.setSpan(ForegroundColorSpan(color), idx, idx + needle.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                idx = text.indexOf(needle, idx + needle.length)
-            }
-        }
-
-        private fun normalizeArabicForMatch(text: String): String {
-            val diacriticsRegex = Regex(DIACRITICS)
-            return text.replace(diacriticsRegex, "")
-                .replace("ٱ", "ا").replace("أ", "ا").replace("إ", "ا")
-                .replace("آ", "ا").replace("ى", "ي").replace("ـ", "")
-                .replace("ة", "ه").trim()
-        }
-
-        private fun removeTrailingParenthesesNumber(text: String): String {
-            return text.trim().replace(TRAILING_PARENS_NUMBER, "").trim()
-        }
-
+        private fun normalize(t: String): String = t.replace(Regex(DIACRITICS), "").replace("ٱ", "ا").replace("أ", "ا").replace("إ", "ا").replace("آ", "ا").replace("ى", "ي").replace("ة", "ه").replace("ـ", "").trim()
+        private fun removeTrailingParenthesesNumber(t: String): String = t.replace(Regex("""\s*\(\s*[\d٠١٢٣٤٥٦٧٨٩]+\s*\)\s*$"""), "").trim()
         private fun formatOrnateAyahNumber(n: Int): String {
-            val arabic = n.toString()
-                .replace("0", "٠").replace("1", "١").replace("2", "٢").replace("3", "٣")
-                .replace("4", "٤").replace("5", "٥").replace("6", "٦").replace("7", "٧")
-                .replace("8", "٨").replace("9", "٩")
-            return "﴿$arabic﴾"
+            val ar = n.toString().map { "٠١٢٣٤٥٦٧٨٩"[it - '0'] }.joinToString("")
+            return "﴿$ar﴾"
         }
     }
 }
