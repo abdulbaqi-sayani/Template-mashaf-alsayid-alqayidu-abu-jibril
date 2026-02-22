@@ -11,5 +11,4 @@
     android:lineSpacingExtra="6dp"
     android:layoutDirection="rtl"
     android:textDirection="rtl"
-    android:gravity="end"
-    android:textAlignment="viewEnd" />
+    android:gravity="right" />
