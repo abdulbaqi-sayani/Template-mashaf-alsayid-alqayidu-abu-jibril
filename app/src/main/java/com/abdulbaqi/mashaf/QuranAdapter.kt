@@ -58,25 +58,32 @@ class QuranAdapter(
             val isBasmala = containsBasmala(cleanText)
             val isSalawat = isSalawatLine(cleanText)
             val isKhatima = isKhatimaSurah(surahName) || isDuaKhatmQuranSurah(surahName)
+            // إضافة شرط للتحقق مما إذا كانت السورة هي الفاتحة (index 0)
+            val isFatiha = item.surahIndex == 0
 
             when {
-                // حالة البسملة، الصلوات، والختامية -> توسيط + حذف أرقام (إلا بسملة الفاتحة)
-                isBasmala || isSalawat || isKhatima -> {
+                // الفاتحة، البسملة، الصلوات، والختامية -> توسيط (Gravity.CENTER)
+                isFatiha || isBasmala || isSalawat || isKhatima -> {
                     b.tvAyah.gravity = Gravity.CENTER
+                    
+                    // معالجة الترقيم للفاتحة والبسملة
                     if (isBasmala && item.surahIndex == 0) {
                         val ornate = formatOrnateAyahNumber(1)
+                        b.tvAyah.text = applyAllColors("$cleanText $ornate", ornate)
+                    } else if (isFatiha && !isBasmala) {
+                        // ترقيم آيات الفاتحة مع التوسيط (البسملة أخذت رقم 1، لذا الآيات تتبعها)
+                        val ornate = formatOrnateAyahNumber(item.ayahIndex + 1)
                         b.tvAyah.text = applyAllColors("$cleanText $ornate", ornate)
                     } else {
                         b.tvAyah.text = applyAllColors(cleanText, null)
                     }
                 }
                 
-                // آيات القرآن العادية -> محاذاة ضبط (FILL) + ترقيم يبدأ بعد البسملة
+                // بقية السور -> محاذاة ضبط (Justify)
                 else -> {
                     b.tvAyah.gravity = Gravity.FILL_HORIZONTAL
                     
                     val basmalaAtStart = hasBasmalaAsFirstAyah(item.surahIndex)
-                    // إذا بدأت السورة ببسملة (index 0)، الآية التالية (index 1) تأخذ رقم 1
                     val displayNumber = if (item.surahIndex != 0 && basmalaAtStart) item.ayahIndex else item.ayahIndex + 1
 
                     if (displayNumber > 0) {
