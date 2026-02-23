@@ -24,6 +24,9 @@ class QuranAdapter(
         private const val RTL_MARK = "\u200F" 
     }
 
+    // الدالة التي كانت مفقودة وتسببت في الخطأ
+    fun getItemAt(pos: Int): QItem = items[pos]
+
     override fun getItemViewType(position: Int): Int = if (items[position] is QItem.SurahTitle) TYPE_TITLE else TYPE_AYAH
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
