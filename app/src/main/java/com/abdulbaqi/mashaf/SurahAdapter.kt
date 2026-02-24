@@ -1,38 +1,41 @@
 package com.abdulbaqi.mashaf
 
+import android.graphics.Color
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.abdulbaqi.mashaf.databinding.ItemSurahBinding
 
 class SurahAdapter(
-    private val names: List<String>,
-    private val bookmarkedIndex: Int,
+    private val surahList: List<Surah>,
     private val onClick: (Int) -> Unit
-) : RecyclerView.Adapter<SurahAdapter.VH>() {
+) : RecyclerView.Adapter<SurahAdapter.SurahVH>() {
 
-    class VH(val b: ItemSurahBinding) : RecyclerView.ViewHolder(b.root)
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-        val b = ItemSurahBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return VH(b)
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SurahVH {
+        val binding = ItemSurahBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return SurahVH(binding)
     }
 
-    override fun onBindViewHolder(holder: VH, position: Int) {
-        val name = names.getOrNull(position).orEmpty()
-        holder.b.tvName.text = name
+    override fun onBindViewHolder(holder: SurahVH, position: Int) {
+        holder.bind(surahList[position], position)
+    }
 
-        // إظهار النجمة فقط إذا كان رقم السورة يطابق رقم السورة المحفوظة
-        holder.b.ivBookmark.visibility = if (position == bookmarkedIndex) View.VISIBLE else View.GONE
+    override fun getItemCount(): Int = surahList.size
 
-        holder.b.root.setOnClickListener {
-            val p = holder.bindingAdapterPosition
-            if (p != RecyclerView.NO_POSITION) {
-                onClick(p)
+    inner class SurahVH(private val binding: ItemSurahBinding) : RecyclerView.ViewHolder(binding.root) {
+        fun bind(surah: Surah, position: Int) {
+            // عرض اسم السورة
+            binding.tvSurahName.text = surah.name
+            
+            // جعل لون اسم السورة أزرق في الفهرس
+            binding.tvSurahName.setTextColor(Color.parseColor("#1565C0"))
+            
+            // عرض رقم السورة (اختياري)
+            binding.tvSurahNumber.text = (position + 1).toString()
+
+            binding.root.setOnClickListener {
+                onClick(position)
             }
         }
     }
-
-    override fun getItemCount(): Int = names.size
 }
