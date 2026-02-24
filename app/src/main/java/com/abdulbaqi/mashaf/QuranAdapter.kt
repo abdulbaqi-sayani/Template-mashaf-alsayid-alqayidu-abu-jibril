@@ -25,7 +25,6 @@ class QuranAdapter(
         private const val RTL_MARK = "\u200F" 
     }
 
-    // الدالة الضرورية لملف MainActivity
     fun getItemAt(pos: Int): QItem = items[pos]
 
     override fun getItemViewType(position: Int): Int = if (items[position] is QItem.SurahTitle) TYPE_TITLE else TYPE_AYAH
@@ -48,7 +47,7 @@ class QuranAdapter(
     private class TitleVH(private val b: ItemSurahTitleBinding) : RecyclerView.ViewHolder(b.root) {
         fun bind(item: QItem.SurahTitle) { 
             b.tvSurahName.text = item.name 
-            b.tvSurahName.setTextColor(Color.parseColor("#1565C0"))
+            b.tvSurahName.setTextColor(Color.parseColor("#1565C0")) // اللون الأزرق للعناوين
         }
     }
 
@@ -58,6 +57,7 @@ class QuranAdapter(
             val rawText = item.text.trim()
             val cleanText = removeTrailingParenthesesNumber(rawText)
             val surahName = findSurahName(item.surahIndex)
+
             val isBasmala = containsBasmala(cleanText)
             val isSalawat = isSalawatLine(cleanText)
             val isKhatima = isKhatimaSurah(surahName) || isDuaKhatmQuranSurah(surahName)
