@@ -25,7 +25,7 @@ class QuranAdapter(
         private const val RTL_MARK = "\u200F" 
     }
 
-    // الدالة الضرورية لتجنب خطأ Unresolved reference في MainActivity
+    // الدالة الضرورية لملف MainActivity
     fun getItemAt(pos: Int): QItem = items[pos]
 
     override fun getItemViewType(position: Int): Int = if (items[position] is QItem.SurahTitle) TYPE_TITLE else TYPE_AYAH
@@ -45,11 +45,10 @@ class QuranAdapter(
         }
     }
 
-    // كود عرض اسم السورة باللون الأزرق داخل المصحف
     private class TitleVH(private val b: ItemSurahTitleBinding) : RecyclerView.ViewHolder(b.root) {
         fun bind(item: QItem.SurahTitle) { 
             b.tvSurahName.text = item.name 
-            b.tvSurahName.setTextColor(Color.parseColor("#1565C0")) // لون أزرق ملكي
+            b.tvSurahName.setTextColor(Color.parseColor("#1565C0"))
         }
     }
 
@@ -59,14 +58,12 @@ class QuranAdapter(
             val rawText = item.text.trim()
             val cleanText = removeTrailingParenthesesNumber(rawText)
             val surahName = findSurahName(item.surahIndex)
-
             val isBasmala = containsBasmala(cleanText)
             val isSalawat = isSalawatLine(cleanText)
             val isKhatima = isKhatimaSurah(surahName) || isDuaKhatmQuranSurah(surahName)
             val isFatiha = item.surahIndex == 0
 
             when {
-                // التوسيط للفاتحة، البسملة، الصلوات
                 isFatiha || isBasmala || isSalawat || isKhatima -> {
                     b.tvAyah.gravity = Gravity.CENTER
                     when {
@@ -82,7 +79,6 @@ class QuranAdapter(
                         else -> b.tvAyah.text = applyAllColors(cleanText, null)
                     }
                 }
-                // بقية السور Justify
                 else -> {
                     b.tvAyah.gravity = Gravity.FILL_HORIZONTAL
                     val basmalaAtStart = hasBasmalaAsFirstAyah(item.surahIndex)
@@ -102,7 +98,6 @@ class QuranAdapter(
         private fun isKhatimaSurah(name: String): Boolean = normalize(name).let { it.contains("كلمه") || it.contains("خاتمه") || it.contains("ختام") }
         private fun isSalawatLine(text: String): Boolean = normalize(text).let { it.contains("اللهم") && it.contains("صل") && it.contains("محمد") }
         private fun containsBasmala(text: String): Boolean = normalize(text).contains("بسم الله الرحمن الرحيم")
-
         private fun hasBasmalaAsFirstAyah(surahIndex: Int): Boolean {
             val first = items.firstOrNull { it is QItem.Ayah && it.surahIndex == surahIndex && it.ayahIndex == 0 } as? QItem.Ayah ?: return false
             return containsBasmala(removeTrailingParenthesesNumber(first.text))
@@ -125,7 +120,7 @@ class QuranAdapter(
         }
 
         private fun normalize(t: String): String = t.replace(Regex(DIACRITICS), "").replace("ٱ", "ا").replace("أ", "ا").replace("إ", "ا").replace("آ", "ا").replace("ى", "ي").replace("ة", "ه").replace("ـ", "").trim()
-        private fun removeTrailingParenthesesNumber(t: String): String = t.replace(Regex("""\\s*\\(\\s*[\\d٠١٢٣٤٥٦٧٨٩]+\\s*\\)\\s*$"""), "").trim()
+        private fun removeTrailingParenthesesNumber(t: String): String = t.replace(Regex("""\s*\(\s*[\d٠١٢٣٤٥٦٧٨٩]+\s*\)\s*$"""), "").trim()
         private fun formatOrnateAyahNumber(n: Int): String {
             val ar = n.toString().map { "٠١٢٣٤٥٦٧٨٩"[it - '0'] }.joinToString("")
             return "﴿$ar﴾"
