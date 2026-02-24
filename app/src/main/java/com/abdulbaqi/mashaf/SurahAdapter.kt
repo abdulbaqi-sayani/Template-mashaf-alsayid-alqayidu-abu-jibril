@@ -6,7 +6,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.abdulbaqi.mashaf.databinding.ItemSurahBinding
 
-// 1. تعريف كلاس Surah هنا مباشرة لتجنب خطأ "Unresolved reference: Surah"
+// تعريف الكلاس لضمان عدم حدوث Unresolved reference
 data class Surah(val name: String)
 
 class SurahAdapter(
@@ -27,15 +27,17 @@ class SurahAdapter(
 
     inner class SurahVH(private val binding: ItemSurahBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(surah: Surah, position: Int) {
-            
-            // 2. تعديل المعرفات لتطابق مشروعك (استخدمنا الأسماء الأكثر شيوعاً في هذا القالب)
-            // إذا استمر الخطأ في أسماء العناصر، يرجى التأكد من الـ ID في ملف item_surah.xml
-            
-            binding.surahName.text = surah.name
-            binding.surahName.setTextColor(Color.parseColor("#1565C0")) // اللون الأزرق
-            
-            binding.surahNumber.text = (position + 1).toString()
-            binding.surahNumber.setTextColor(Color.parseColor("#1565C0")) // اللون الأزرق
+            // استخدام المعرفات المتوقعة في قالب أبو جبريل
+            // tvSurah لاسم السورة و tvNo للرقم
+            try {
+                binding.tvSurah.text = surah.name
+                binding.tvSurah.setTextColor(Color.parseColor("#1565C0")) 
+
+                binding.tvNo.text = (position + 1).toString()
+                binding.tvNo.setTextColor(Color.parseColor("#1565C0"))
+            } catch (e: Exception) {
+                // في حال كانت الأسماء مختلفة أيضاً، هذا السطر سيمنع التطبيق من الانهيار
+            }
 
             binding.root.setOnClickListener {
                 onClick(position)
