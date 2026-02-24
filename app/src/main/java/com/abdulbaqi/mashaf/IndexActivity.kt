@@ -13,28 +13,27 @@ class IndexActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // 1. إعداد الـ View Binding
+        // 1. إعداد الـ View Binding لربط واجهة المستخدم 
         binding = ActivityIndexBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // 2. تجهيز قائمة السور (جلب الأسماء من المصفوفة النصية في strings.xml)
+        // 2. جلب مصفوفة الأسماء من ملف strings.xml
         val surahNamesArray = resources.getStringArray(R.array.surah_names)
         
-        // تحويل المصفوفة النصية إلى قائمة من كائنات Surah لكي يقبلها الـ Adapter الجديد
-        val surahList = surahNamesArray.map { name -> Surah(name) }
+        // 3. تحويل مصفوفة النصوص إلى قائمة من كائنات Surah لحل مشكلة Type mismatch 
+        val surahList = surahNamesArray.map { Surah(it) }
 
-        // 3. إعداد الـ RecyclerView
+        // 4. إعداد الـ RecyclerView
         binding.rvSurah.layoutManager = LinearLayoutManager(this)
 
-        // 4. إنشاء الـ Adapter مع دالة الضغط (Lambda)
+        // 5. إنشاء الـ Adapter مع تمرير القائمة ودالة الضغط (Lambda) 
         val adapter = SurahAdapter(surahList) { position ->
-            // الكود الذي ينفذ عند الضغط على سورة معينة
             val intent = Intent(this, MainActivity::class.java)
-            intent.putExtra("surah_index", position) // إرسال رقم السورة للمصحف
+            intent.putExtra("surah_index", position) // تمرير رقم السورة المحددة 
             startActivity(intent)
         }
 
-        // 5. ربط المحول بالـ RecyclerView
+        // 6. ربط المحول بالـ RecyclerView لعرض القائمة
         binding.rvSurah.adapter = adapter
     }
 }
