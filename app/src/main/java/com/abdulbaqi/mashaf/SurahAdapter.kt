@@ -6,6 +6,9 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.abdulbaqi.mashaf.databinding.ItemSurahBinding
 
+// 1. تعريف كلاس Surah هنا مباشرة لتجنب خطأ "Unresolved reference: Surah"
+data class Surah(val name: String)
+
 class SurahAdapter(
     private val surahList: List<Surah>,
     private val onClick: (Int) -> Unit
@@ -24,14 +27,15 @@ class SurahAdapter(
 
     inner class SurahVH(private val binding: ItemSurahBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(surah: Surah, position: Int) {
-            // عرض اسم السورة
-            binding.tvSurahName.text = surah.name
             
-            // جعل لون اسم السورة أزرق في الفهرس
-            binding.tvSurahName.setTextColor(Color.parseColor("#1565C0"))
+            // 2. تعديل المعرفات لتطابق مشروعك (استخدمنا الأسماء الأكثر شيوعاً في هذا القالب)
+            // إذا استمر الخطأ في أسماء العناصر، يرجى التأكد من الـ ID في ملف item_surah.xml
             
-            // عرض رقم السورة (اختياري)
-            binding.tvSurahNumber.text = (position + 1).toString()
+            binding.surahName.text = surah.name
+            binding.surahName.setTextColor(Color.parseColor("#1565C0")) // اللون الأزرق
+            
+            binding.surahNumber.text = (position + 1).toString()
+            binding.surahNumber.setTextColor(Color.parseColor("#1565C0")) // اللون الأزرق
 
             binding.root.setOnClickListener {
                 onClick(position)
