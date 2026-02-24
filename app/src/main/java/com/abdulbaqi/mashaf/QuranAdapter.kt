@@ -1,6 +1,7 @@
 package com.abdulbaqi.mashaf
 
 import android.graphics.Typeface
+import android.graphics.Color
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
@@ -24,7 +25,7 @@ class QuranAdapter(
         private const val RTL_MARK = "\u200F" 
     }
 
-    // الدالة التي كانت مفقودة وتسببت في الخطأ
+    // الدالة الضرورية لتجنب خطأ Unresolved reference في MainActivity
     fun getItemAt(pos: Int): QItem = items[pos]
 
     override fun getItemViewType(position: Int): Int = if (items[position] is QItem.SurahTitle) TYPE_TITLE else TYPE_AYAH
@@ -44,12 +45,15 @@ class QuranAdapter(
         }
     }
 
+    // كود عرض اسم السورة باللون الأزرق داخل المصحف
     private class TitleVH(private val b: ItemSurahTitleBinding) : RecyclerView.ViewHolder(b.root) {
-        fun bind(item: QItem.SurahTitle) { b.tvSurahName.text = item.name }
+        fun bind(item: QItem.SurahTitle) { 
+            b.tvSurahName.text = item.name 
+            b.tvSurahName.setTextColor(Color.parseColor("#1565C0")) // لون أزرق ملكي
+        }
     }
 
     private inner class AyahVH(private val b: ItemAyahBinding) : RecyclerView.ViewHolder(b.root) {
-
         fun bind(item: QItem.Ayah) {
             b.tvAyah.typeface = amiri
             val rawText = item.text.trim()
@@ -62,38 +66,27 @@ class QuranAdapter(
             val isFatiha = item.surahIndex == 0
 
             when {
-                // الحالات التي تتطلب توسيط النص (Center)
+                // التوسيط للفاتحة، البسملة، الصلوات
                 isFatiha || isBasmala || isSalawat || isKhatima -> {
                     b.tvAyah.gravity = Gravity.CENTER
-                    
                     when {
-                        // 1. الصلوات: بدون رقم دائماً
-                        isSalawat -> {
-                            b.tvAyah.text = applyAllColors(cleanText, null)
-                        }
-                        // 2. بسملة الفاتحة: تأخذ رقم 1
+                        isSalawat -> b.tvAyah.text = applyAllColors(cleanText, null)
                         isBasmala && isFatiha -> {
                             val ornate = formatOrnateAyahNumber(1)
                             b.tvAyah.text = applyAllColors("$cleanText $ornate", ornate)
                         }
-                        // 3. آيات الفاتحة: تأخذ رقمها التسلسلي
                         isFatiha -> {
                             val ornate = formatOrnateAyahNumber(item.ayahIndex + 1)
                             b.tvAyah.text = applyAllColors("$cleanText $ornate", ornate)
                         }
-                        // 4. البسملة في بقية السور أو الخاتمة: بدون رقم
-                        else -> {
-                            b.tvAyah.text = applyAllColors(cleanText, null)
-                        }
+                        else -> b.tvAyah.text = applyAllColors(cleanText, null)
                     }
                 }
-                
-                // بقية سور المصحف (Justify)
+                // بقية السور Justify
                 else -> {
                     b.tvAyah.gravity = Gravity.FILL_HORIZONTAL
                     val basmalaAtStart = hasBasmalaAsFirstAyah(item.surahIndex)
                     val displayNumber = if (basmalaAtStart) item.ayahIndex else item.ayahIndex + 1
-
                     if (displayNumber > 0) {
                         val ornate = formatOrnateAyahNumber(displayNumber)
                         b.tvAyah.text = applyAllColors("$RTL_MARK$cleanText  $ornate", ornate)
@@ -119,17 +112,11 @@ class QuranAdapter(
             val ss = SpannableString(text)
             val green = ContextCompat.getColor(b.root.context, android.R.color.holo_green_dark)
             val red = ContextCompat.getColor(b.root.context, android.R.color.holo_red_dark)
-            
-            // تلوين لفظ الجلالة "الله"
             Regex("(?<![\\u0600-\\u06FF])([ٱا]$DIACRITICS*ل$DIACRITICS*ل$DIACRITICS*ه$DIACRITICS*)(?![\\u0600-\\u06FF])")
                 .findAll(text).forEach { ss.setSpan(ForegroundColorSpan(green), it.range.first, it.range.last + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
-            
-            // تلوين الرموز الزخرفية
             setOf('❁', '✿', '❀').forEach { char ->
                 text.forEachIndexed { i, c -> if (c == char) ss.setSpan(ForegroundColorSpan(green), i, i + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
             }
-
-            // تلوين رقم الآية باللون الأحمر
             if (!ornateNumberPart.isNullOrEmpty()) {
                 val start = text.lastIndexOf(ornateNumberPart)
                 if (start >= 0) ss.setSpan(ForegroundColorSpan(red), start, start + ornateNumberPart.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -138,7 +125,7 @@ class QuranAdapter(
         }
 
         private fun normalize(t: String): String = t.replace(Regex(DIACRITICS), "").replace("ٱ", "ا").replace("أ", "ا").replace("إ", "ا").replace("آ", "ا").replace("ى", "ي").replace("ة", "ه").replace("ـ", "").trim()
-        private fun removeTrailingParenthesesNumber(t: String): String = t.replace(Regex("""\s*\(\s*[\d٠١٢٣٤٥٦٧٨٩]+\s*\)\s*$"""), "").trim()
+        private fun removeTrailingParenthesesNumber(t: String): String = t.replace(Regex("""\\s*\\(\\s*[\\d٠١٢٣٤٥٦٧٨٩]+\\s*\\)\\s*$"""), "").trim()
         private fun formatOrnateAyahNumber(n: Int): String {
             val ar = n.toString().map { "٠١٢٣٤٥٦٧٨٩"[it - '0'] }.joinToString("")
             return "﴿$ar﴾"
