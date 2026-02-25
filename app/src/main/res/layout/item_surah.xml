@@ -24,9 +24,8 @@
         android:id="@+id/ivBookmark"
         android:layout_width="35dp"
         android:layout_height="35dp"
-        android:layout_marginStart="10dp"
-        android:contentDescription="@string/bookmark"
         android:src="@drawable/ic_3d_star_gold"
-        android:visibility="gone" />
+        android:visibility="gone"
+        android:layout_marginStart="10dp" />
 
 </LinearLayout>
