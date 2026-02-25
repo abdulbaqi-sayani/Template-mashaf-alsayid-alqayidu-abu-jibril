@@ -1,6 +1,7 @@
 package com.abdulbaqi.mashaf
 
 import android.content.Intent
+import android.content.res.Resources
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -12,27 +13,28 @@ class IndexActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // 1. إعداد الـ View Binding
+
         binding = ActivityIndexBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // 2. جلب الأسماء من المصفوفة وتحويلها إلى كائنات Surah
-        val surahNamesArray = resources.getStringArray(R.array.surah_names)
-        val surahList = surahNamesArray.map { Surah(it) }
+        val surahNames = try {
+            resources.getStringArray(R.array.surah_names).toList()
+        } catch (e: Resources.NotFoundException) {
+            // في حال لم يتم إنشاء R.array.surah_names بعد
+            listOf("الفاتحة", "البقرة", "آل عمران")
+        }
 
-        // 3. إعداد الـ RecyclerView
-        // ملاحظة: تأكد أن ID الـ RecyclerView في ملف XML هو rv_surah أو rvSurah
+        val surahList = surahNames.map { name -> Surah(name) }
+
         binding.rvSurah.layoutManager = LinearLayoutManager(this)
 
-        // 4. إنشاء الـ Adapter مع دالة الضغط
         val adapter = SurahAdapter(surahList) { position ->
-            val intent = Intent(this, MainActivity::class.java)
-            intent.putExtra("surah_index", position)
+            val intent = Intent(this, MainActivity::class.java).apply {
+                putExtra("surah_index", position)
+            }
             startActivity(intent)
         }
 
-        // 5. ربط المحول
         binding.rvSurah.adapter = adapter
     }
 }
