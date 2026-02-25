@@ -6,7 +6,9 @@
     android:layoutDirection="rtl"
     android:padding="16dp"
     android:gravity="center_vertical"
-    android:background="?attr/selectableItemBackground">
+    android:background="?attr/selectableItemBackgroundBorderless"
+    android:clickable="true"
+    android:focusable="true">
 
     <TextView
         android:id="@+id/tvName"
@@ -16,14 +18,15 @@
         android:textSize="22sp"
         android:textColor="#000000"
         android:textStyle="bold"
-        android:gravity="right|center_vertical" />
+        android:gravity="end|center_vertical" />
 
     <ImageView
         android:id="@+id/ivBookmark"
         android:layout_width="35dp"
         android:layout_height="35dp"
+        android:layout_marginStart="10dp"
+        android:contentDescription="@string/bookmark"
         android:src="@drawable/ic_3d_star_gold"
-        android:visibility="gone"
-        android:layout_marginStart="10dp" />
+        android:visibility="gone" />
 
 </LinearLayout>
